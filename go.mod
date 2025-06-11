@@ -26,7 +26,7 @@ require (
 )
 
 require (
-	pkg/conf v0.0.0-00010101000000-000000000000 // indirect
+	pkg/conf v0.0.0-00010101000000-000000000000
 	pkg/worker v0.0.0-00010101000000-000000000000
 )
 
@@ -47,5 +47,5 @@ require (
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0
 )

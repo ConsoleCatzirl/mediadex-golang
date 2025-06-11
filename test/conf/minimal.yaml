@@ -1,0 +1,9 @@
+mediadex:
+  paths:
+    movies:  # or "music" or "series"
+      - /path/one
+  backends:
+    arangodb:  # or "opensearch"
+      auth:
+        user: testuser
+        pass: testpass

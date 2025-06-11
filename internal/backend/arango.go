@@ -86,7 +86,22 @@ func (c *ArangoClient) connectCollection(name string) error {
 }
 
 func (c *ArangoClient) Index() error {
-	return nil
+	for {
+		it, more := <-c.itemPipe
+		if !more {
+			log.Printf("Trace: arango pipe is empty and closed")
+			return nil
+		}
+
+		jDoc, err := it.JsonDoc()
+		if err != nil {
+			log.Printf("Error: %s", err)
+			continue // skip to next item from pipe
+		}
+		_ = jDoc.Arango()
+		// todo: upsert arango document
+	}
+
 }
 
 func (c *ArangoClient) LookupItem(key string) (item.Item, error) {

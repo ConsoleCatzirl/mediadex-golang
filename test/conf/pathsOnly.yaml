@@ -1,0 +1,10 @@
+mediadex:
+  paths:
+    movies:
+      - /path/one
+    music:
+      - /path/two
+    series:
+      - /path/three
+      - /path/four
+

@@ -21,7 +21,7 @@ vet:
 	go vet ./test
 
 test: vet
-	go test -v ./test
+	go test -v pkg/worker internal/item ./test
 
 clean:
 	rm mediadex

@@ -1,0 +1,10 @@
+mediadex:
+  backends:
+    arangodb:
+      auth:
+        user: testuser
+        pass: testpass
+    opensearch:
+      auth:
+        user: testuser
+        pass: testpass

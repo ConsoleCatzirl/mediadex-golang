@@ -8,6 +8,7 @@ import (
 	"internal/walker"
 	"log"
 	"pkg/conf"
+	"sync"
 )
 
 type Worker struct {
@@ -17,9 +18,9 @@ type Worker struct {
 	musicWalkers   []walker.Walker
 	episodeWalkers []walker.Walker
 
-	prePipeFeatures chan *item.FileItem
-	prePipeMusic    chan *item.FileItem
-	prePipeEpisode  chan *item.FileItem
+	prePipeFeature chan *item.FileItem
+	prePipeMusic   chan *item.FileItem
+	prePipeEpisode chan *item.FileItem
 
 	featureRunners []runner.Runner
 	musicRunners   []runner.Runner
@@ -50,9 +51,9 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 	newWorker := &Worker{
 		config: config,
 
-		prePipeFeatures: make(chan *item.FileItem, pipeSize),
-		prePipeMusic:    make(chan *item.FileItem, pipeSize),
-		prePipeEpisode:  make(chan *item.FileItem, pipeSize),
+		prePipeFeature: make(chan *item.FileItem, pipeSize),
+		prePipeMusic:   make(chan *item.FileItem, pipeSize),
+		prePipeEpisode: make(chan *item.FileItem, pipeSize),
 
 		postPipeArango:     make(chan item.Item, pipeSize),
 		postPipeOpenSearch: make(chan item.Item, pipeSize),
@@ -79,13 +80,14 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		)
 		newWorker.openSearchBackend = newOpenSearchClient
 	}
-	// add feature walkers
+
 	if len(config.Paths.Features) > 0 {
+		// add feature walkers
 		log.Println("Trace: creating movie walkers")
 		newFeaturesWalkers := walker.MakeWalkers(
 			config.Paths.Features,
 			&config.Actions,
-			newWorker.prePipeFeatures,
+			newWorker.prePipeFeature,
 		)
 		for _, walker := range newFeaturesWalkers {
 			newWorker.featureWalkers = append(newWorker.featureWalkers, walker)
@@ -99,7 +101,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 			newRunner := runner.NewRunner(
 				&config.Actions,
 				item.FeatureFamily,
-				newWorker.prePipeFeatures,
+				newWorker.prePipeFeature,
 				newWorker.postPipeArango,
 				newWorker.postPipeOpenSearch,
 				newWorker.arangoBackend,
@@ -110,8 +112,8 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		newWorker.featureRunners = newFeatureRunners
 	}
 
-	// add music walkers
 	if len(config.Paths.Music) > 0 {
+		// add music walkers
 		log.Println("Trace: creating music walkers")
 		newMusicWalkers := walker.MakeWalkers(
 			config.Paths.Music,
@@ -140,8 +142,8 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		newWorker.musicRunners = newMusicRunners
 	}
 
-	// add episode walkers
 	if len(config.Paths.Episodes) > 0 {
+		// add episode walkers
 		log.Println("Trace: creating series walkers")
 		newEpisodeWalkers := walker.MakeWalkers(
 			config.Paths.Episodes,
@@ -181,17 +183,137 @@ func (w *Worker) Work() error {
 
 	// todo: if we're cleaning, do it first
 
+	// spawn worker components in reverse: backends, runners, walkers
+	// so that the consumers are listening before the producers begin
+
 	log.Println("Trace: starting backend indexers")
+
+	var wgArango, wgOpenSearch, wgBackends sync.WaitGroup
+	wgArango.Add(1)     // todo: conf setting
+	wgOpenSearch.Add(1) // todo: conf setting
+	wgBackends.Add(2)   // number of backends
+
+	// close backend pipes individually
+	go func() {
+		defer wgArango.Done()
+		log.Println("Trace: arango indexer starting")
+		w.arangoBackend.Index()
+		log.Println("Trace: arango indexer finished")
+	}()
+
+	go func() {
+		defer wgOpenSearch.Done()
+		log.Println("Trace: opensearch indexer starting")
+		w.openSearchBackend.Index()
+		log.Println("Trace:  opensearch indexer finished")
+	}()
+
+	// signal all backend complete
+	go func() {
+		defer wgBackends.Done()
+		wgArango.Wait()
+	}()
+	go func() {
+		defer wgBackends.Done()
+		wgOpenSearch.Wait()
+	}()
 
 	log.Println("Trace: starting core runners")
 
-	log.Println("Trace: core runners finished")
+	var wgRunners sync.WaitGroup
+	wgRunners.Add(len(w.featureRunners))
+	wgRunners.Add(len(w.musicRunners))
+	wgRunners.Add(len(w.episodeRunners))
+
+	for _, runner := range w.featureRunners {
+		go func() {
+			defer wgRunners.Done()
+			log.Println("Trace: movie runner starting")
+			runner.Run()
+			log.Println("Trace: movie runner finished")
+		}()
+	}
+
+	for _, runner := range w.musicRunners {
+		go func() {
+			defer wgRunners.Done()
+			log.Println("Trace: music runner starting")
+			runner.Run()
+			log.Println("Trace: music runner finished")
+		}()
+	}
+
+	for _, runner := range w.episodeRunners {
+		go func() {
+			defer wgRunners.Done()
+			log.Println("Trace: series runner starting")
+			runner.Run()
+			log.Println("Trace: series runner finished")
+		}()
+	}
+
+	// close all backend pipes together after all runners finish
+	go func() {
+		defer close(w.postPipeArango)
+		defer close(w.postPipeOpenSearch)
+		wgRunners.Wait()
+		log.Println("Trace: all runners finished; closing backend pipes")
+
+	}()
 
 	log.Println("Trace: starting file walkers")
 
-	log.Println("Trace: file walkers finished")
+	var wgFeatureWalkers, wgMusicWalkers, wgEpisodeWalkers sync.WaitGroup
+	wgFeatureWalkers.Add(len(w.featureWalkers))
+	wgMusicWalkers.Add(len(w.musicWalkers))
+	wgEpisodeWalkers.Add(len(w.episodeWalkers))
 
-	log.Println("Trace: runners finished")
+	for _, walker := range w.featureWalkers {
+		go func() {
+			defer wgFeatureWalkers.Done()
+			log.Println("Trace: movie walker starting")
+			walker.Walk()
+			log.Println("Trace: movie walker finished")
+		}()
+	}
+	for _, walker := range w.musicWalkers {
+		go func() {
+			defer wgMusicWalkers.Done()
+			log.Println("Trace: music walker starting")
+			walker.Walk()
+			log.Println("Trace: music walker finished")
+		}()
+	}
+	for _, walker := range w.episodeWalkers {
+		go func() {
+			defer wgEpisodeWalkers.Done()
+			log.Println("Trace: series walker starting")
+			walker.Walk()
+			log.Println("Trace: series walker finished")
+		}()
+	}
+
+	// close each file pipe after each walker type finishes
+	go func() {
+		defer close(w.prePipeFeature)
+		wgFeatureWalkers.Wait()
+		log.Println("Trace: movie walkers finished; closing pipe")
+
+	}()
+	go func() {
+		defer close(w.prePipeMusic)
+		wgMusicWalkers.Wait()
+		log.Println("Trace: music walkers finished; closing pipe")
+	}()
+	go func() {
+		defer close(w.prePipeEpisode)
+		wgEpisodeWalkers.Wait()
+		log.Println("Trace: series walkers finished; closing pipe")
+	}()
+
+	// finally, wait for backends to finish
+	wgBackends.Wait()
+	log.Println("Trace: backends finished")
 
 	return nil
 }

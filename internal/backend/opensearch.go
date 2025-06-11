@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"internal/item"
+	"log"
 	"pkg/conf"
 
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -81,6 +82,7 @@ func (c *OpenSearchClient) indexSettings() *OpenSearchIndexSettings {
 }
 
 func (c *OpenSearchClient) connectCluster() error {
+	log.Println("Trace: connecting to OpenSearch cluster")
 	return nil
 }
 
@@ -89,7 +91,21 @@ func (c *OpenSearchClient) assertIndex(name string, settings *OpenSearchIndexSet
 }
 
 func (c *OpenSearchClient) Index() error {
-	return nil
+	for {
+		it, more := <-c.itemPipe
+		if !more {
+			log.Printf("Trace: arango pipe is empty and closed")
+			return nil
+		}
+
+		jDoc, err := it.JsonDoc()
+		if err != nil {
+			log.Printf("Error: %s", err)
+			continue // skip to next item from pipe
+		}
+		_ = jDoc.OpenSearch()
+		// todo: upsert arango document
+	}
 }
 
 func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {

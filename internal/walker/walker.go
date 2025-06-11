@@ -3,13 +3,14 @@ package walker
 import (
 	"internal/item"
 	"io/fs"
+	"log"
 	"path/filepath"
 	"pkg/conf"
 )
 
 type Walker interface {
 	Walk() error
-	processFile(string, fs.DirEntry, error) error
+	ProcessFile(string, fs.DirEntry, error) error
 }
 
 type mediaWalker struct {
@@ -32,19 +33,36 @@ func MakeWalkers(paths []string, aConf *conf.ActionConf, fPipe chan *item.FileIt
 }
 
 func (w *mediaWalker) Walk() error {
-	return filepath.WalkDir(w.searchPath, w.processFile)
+	return filepath.WalkDir(w.searchPath, w.ProcessFile)
 }
 
-func (w *mediaWalker) processFile(path string, dir fs.DirEntry, err error) error {
+func (w *mediaWalker) ProcessFile(path string, dir fs.DirEntry, err error) error {
 	if err != nil {
+		log.Printf("Error opening file: %v", err)
 		return err
 	}
 
-	// todo: skip non-regular files
+	dType := dir.Type()
+	if dType.IsDir() {
+		// Silently skip directories
+		return nil
+	}
 
-	// todo: create item.FileItem
+	if !dType.IsRegular() {
+		// Skip special file types
+		log.Printf("Skipping non-regular file: '%s'", path)
+		return nil
+	}
 
-	// todo: send file item down the pipe
+	// read file stats from disk
+	newFileItem, err := item.StatFile(dir, path, w.searchPath)
+	if err != nil {
+		log.Printf("Error creating file item: %v", err)
+		return err
+	}
 
+	// send file item to a runner
+	log.Printf("Trace: sending item to runner: %s", path)
+	w.filePipe <- newFileItem
 	return nil
 }

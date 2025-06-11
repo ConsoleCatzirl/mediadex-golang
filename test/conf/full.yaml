@@ -1,0 +1,41 @@
+mediadex:
+  backends:
+    arangodb:
+      auth:
+        insecure: true
+        host: "arangodb.example.com"
+        port: 8529
+        user: testuser
+        pass: testpass
+      backend:
+        database_name: "cool-project"
+        collection_prefix: "my-"
+        movies_collection: "Movies"
+        music_collection: "Music"
+        series_collection: "Series"
+    opensearch:
+      auth:
+        insecure: true
+        hosts:
+          - "https://node1.example.com:9200"
+          - "https://node2.example.com:9200"
+          - "https://node2.example.com:9201"
+        user: testuser
+        pass: testpass
+      backend:
+        index_prefix: "cool-project-"
+        movie_index: "my-Movies"
+        music_index: "my-Music"
+        series_index: "my-Series"
+        replicas: 2
+        shards: 3
+  paths:
+    movies:
+      - /path/one
+      - /path/two
+    music:
+      - /path/three
+      - /path/four
+    series:
+      - /path/five
+      - /path/six
