@@ -3,9 +3,9 @@ package conf
 import "errors"
 
 func (c *Conf) Validate() error {
-	pCount := len(c.Paths.Movies)
+	pCount := len(c.Paths.Features)
 	pCount += len(c.Paths.Music)
-	pCount += len(c.Paths.Series)
+	pCount += len(c.Paths.Episodes)
 	if pCount == 0 {
 		return errors.New("No search paths configured")
 	}

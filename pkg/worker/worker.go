@@ -13,17 +13,17 @@ import (
 type Worker struct {
 	config *conf.Conf
 
-	moviesWalkers []walker.Walker
-	musicWalkers  []walker.Walker
-	seriesWalkers []walker.Walker
+	featureWalkers []walker.Walker
+	musicWalkers   []walker.Walker
+	episodeWalkers []walker.Walker
 
-	prePipeMovies chan *item.FileItem
-	prePipeMusic  chan *item.FileItem
-	prePipeSeries chan *item.FileItem
+	prePipeFeatures chan *item.FileItem
+	prePipeMusic    chan *item.FileItem
+	prePipeEpisode  chan *item.FileItem
 
-	movieRunners  []runner.Runner
-	musicRunners  []runner.Runner
-	seriesRunners []runner.Runner
+	featureRunners []runner.Runner
+	musicRunners   []runner.Runner
+	episodeRunners []runner.Runner
 
 	postPipeArango     chan item.Item
 	postPipeOpenSearch chan item.Item
@@ -50,9 +50,9 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 	newWorker := &Worker{
 		config: config,
 
-		prePipeMovies: make(chan *item.FileItem, pipeSize),
-		prePipeMusic:  make(chan *item.FileItem, pipeSize),
-		prePipeSeries: make(chan *item.FileItem, pipeSize),
+		prePipeFeatures: make(chan *item.FileItem, pipeSize),
+		prePipeMusic:    make(chan *item.FileItem, pipeSize),
+		prePipeEpisode:  make(chan *item.FileItem, pipeSize),
 
 		postPipeArango:     make(chan item.Item, pipeSize),
 		postPipeOpenSearch: make(chan item.Item, pipeSize),
@@ -79,35 +79,35 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		)
 		newWorker.openSearchBackend = newOpenSearchClient
 	}
-	// add movies walkers
-	if len(config.Paths.Movies) > 0 {
+	// add feature walkers
+	if len(config.Paths.Features) > 0 {
 		log.Println("Trace: creating movie walkers")
-		newMoviesWalkers := walker.MakeWalkers(
-			config.Paths.Movies,
+		newFeaturesWalkers := walker.MakeWalkers(
+			config.Paths.Features,
 			&config.Actions,
-			newWorker.prePipeMovies,
+			newWorker.prePipeFeatures,
 		)
-		for _, walker := range newMoviesWalkers {
-			newWorker.moviesWalkers = append(newWorker.moviesWalkers, walker)
+		for _, walker := range newFeaturesWalkers {
+			newWorker.featureWalkers = append(newWorker.featureWalkers, walker)
 		}
 
-		// add movies runners
+		// add feature runners
 		log.Println("Trace: creating movie runners")
 
-		newMovieRunners := make([]runner.Runner, 0)
+		newFeatureRunners := make([]runner.Runner, 0)
 		for _ = range runnerCount {
 			newRunner := runner.NewRunner(
 				&config.Actions,
-				item.MovieFamily,
-				newWorker.prePipeMovies,
+				item.FeatureFamily,
+				newWorker.prePipeFeatures,
 				newWorker.postPipeArango,
 				newWorker.postPipeOpenSearch,
 				newWorker.arangoBackend,
 				newWorker.openSearchBackend,
 			)
-			newMovieRunners = append(newMovieRunners, newRunner)
+			newFeatureRunners = append(newFeatureRunners, newRunner)
 		}
-		newWorker.movieRunners = newMovieRunners
+		newWorker.featureRunners = newFeatureRunners
 	}
 
 	// add music walkers
@@ -140,34 +140,34 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		newWorker.musicRunners = newMusicRunners
 	}
 
-	// add series walkers
-	if len(config.Paths.Series) > 0 {
+	// add episode walkers
+	if len(config.Paths.Episodes) > 0 {
 		log.Println("Trace: creating series walkers")
-		newSeriesWalkers := walker.MakeWalkers(
-			config.Paths.Series,
+		newEpisodeWalkers := walker.MakeWalkers(
+			config.Paths.Episodes,
 			&config.Actions,
-			newWorker.prePipeSeries,
+			newWorker.prePipeEpisode,
 		)
-		for _, walker := range newSeriesWalkers {
-			newWorker.seriesWalkers = append(newWorker.seriesWalkers, walker)
+		for _, walker := range newEpisodeWalkers {
+			newWorker.episodeWalkers = append(newWorker.episodeWalkers, walker)
 		}
 
-		// add series runners
+		// add episode runners
 		log.Println("Trace: creating series runners")
-		newSeriesRunners := make([]runner.Runner, 0)
+		newEpisodeRunners := make([]runner.Runner, 0)
 		for _ = range runnerCount {
 			newRunner := runner.NewRunner(
 				&config.Actions,
-				item.SeriesFamily,
-				newWorker.prePipeSeries,
+				item.EpisodeFamily,
+				newWorker.prePipeEpisode,
 				newWorker.postPipeArango,
 				newWorker.postPipeOpenSearch,
 				newWorker.arangoBackend,
 				newWorker.openSearchBackend,
 			)
-			newSeriesRunners = append(newSeriesRunners, newRunner)
+			newEpisodeRunners = append(newEpisodeRunners, newRunner)
 		}
-		newWorker.seriesRunners = newSeriesRunners
+		newWorker.episodeRunners = newEpisodeRunners
 	}
 
 	log.Println("Trace: new worker created")

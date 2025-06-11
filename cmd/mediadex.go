@@ -19,9 +19,9 @@ func main() {
 		log.Fatalf("Failed to create worker: %s", err)
 	}
 
-	log.Printf("Movies paths: %v", config.Paths.Movies)
+	log.Printf("Movie paths: %v", config.Paths.Features)
 	log.Printf("Music paths: %v", config.Paths.Music)
-	log.Printf("Series paths: %v", config.Paths.Series)
+	log.Printf("Series paths: %v", config.Paths.Episodes)
 
 	if config.Backend.ArangoDB != nil {
 		log.Printf("Found configuration for ArangoDB")

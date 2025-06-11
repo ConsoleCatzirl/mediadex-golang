@@ -19,14 +19,14 @@ func (c *Conf) AddDefaults() error {
 		if c.Backend.ArangoDB.Settings.DbName == "" {
 			c.Backend.ArangoDB.Settings.DbName = "mediadex"
 		}
-		if c.Backend.ArangoDB.Settings.MovieCol == "" {
-			c.Backend.ArangoDB.Settings.MovieCol = "movies"
+		if c.Backend.ArangoDB.Settings.FeatureCol == "" {
+			c.Backend.ArangoDB.Settings.FeatureCol = "movies"
 		}
 		if c.Backend.ArangoDB.Settings.MusicCol == "" {
 			c.Backend.ArangoDB.Settings.MusicCol = "music"
 		}
-		if c.Backend.ArangoDB.Settings.SeriesCol == "" {
-			c.Backend.ArangoDB.Settings.SeriesCol = "series"
+		if c.Backend.ArangoDB.Settings.EpisodeCol == "" {
+			c.Backend.ArangoDB.Settings.EpisodeCol = "series"
 		}
 	}
 
@@ -41,14 +41,14 @@ func (c *Conf) AddDefaults() error {
 		}
 
 		// add index names
-		if c.Backend.OpenSearch.Settings.MoviesIndex == "" {
-			c.Backend.OpenSearch.Settings.MoviesIndex = "movies"
+		if c.Backend.OpenSearch.Settings.FeatureIndex == "" {
+			c.Backend.OpenSearch.Settings.FeatureIndex = "movies"
 		}
 		if c.Backend.OpenSearch.Settings.MusicIndex == "" {
 			c.Backend.OpenSearch.Settings.MusicIndex = "music"
 		}
-		if c.Backend.OpenSearch.Settings.SeriesIndex == "" {
-			c.Backend.OpenSearch.Settings.SeriesIndex = "series"
+		if c.Backend.OpenSearch.Settings.EpisodeIndex == "" {
+			c.Backend.OpenSearch.Settings.EpisodeIndex = "series"
 		}
 	}
 

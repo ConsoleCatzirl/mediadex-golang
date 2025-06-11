@@ -3,9 +3,9 @@ package item
 type Family string
 
 const (
-	MovieFamily  Family = "movies"
-	MusicFamily         = "music"
-	SeriesFamily        = "series"
+	FeatureFamily Family = "feature"
+	MusicFamily          = "music"
+	EpisodeFamily        = "episode"
 )
 
 func (f *Family) String() string {

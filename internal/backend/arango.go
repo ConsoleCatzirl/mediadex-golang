@@ -12,17 +12,17 @@ import (
 )
 
 type ArangoClient struct {
-	ctx           context.Context
-	config        *conf.ArangoConf
-	itemPipe      chan item.Item
-	upstream      arangodb.Client
-	dbName        string
-	connection    connection.Connection
-	database      arangodb.Database
-	colNameMap    map[string]arangodb.Collection
-	colNameMovies string
-	colNameMusic  string
-	colNameSeries string
+	ctx            context.Context
+	config         *conf.ArangoConf
+	itemPipe       chan item.Item
+	upstream       arangodb.Client
+	dbName         string
+	connection     connection.Connection
+	database       arangodb.Database
+	colNameMap     map[string]arangodb.Collection
+	colNameFeature string
+	colNameMusic   string
+	colNameEpisode string
 }
 
 func MakeArangoClient(cfg *conf.ArangoConf, pipe chan item.Item) *ArangoClient {
@@ -33,10 +33,10 @@ func MakeArangoClient(cfg *conf.ArangoConf, pipe chan item.Item) *ArangoClient {
 
 		dbName: cfg.Settings.DbName,
 
-		colNameMap:    make(map[string]arangodb.Collection),
-		colNameMovies: cfg.Settings.ColPrefix + cfg.Settings.MovieCol,
-		colNameMusic:  cfg.Settings.ColPrefix + cfg.Settings.MusicCol,
-		colNameSeries: cfg.Settings.ColPrefix + cfg.Settings.SeriesCol,
+		colNameMap:     make(map[string]arangodb.Collection),
+		colNameFeature: cfg.Settings.ColPrefix + cfg.Settings.FeatureCol,
+		colNameMusic:   cfg.Settings.ColPrefix + cfg.Settings.MusicCol,
+		colNameEpisode: cfg.Settings.ColPrefix + cfg.Settings.EpisodeCol,
 	}
 	return newClient
 }
@@ -52,7 +52,7 @@ func (c *ArangoClient) Connect() error {
 		return err
 	}
 
-	err = c.connectCollection(c.colNameMovies)
+	err = c.connectCollection(c.colNameFeature)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (c *ArangoClient) Connect() error {
 		return err
 	}
 
-	err = c.connectCollection(c.colNameSeries)
+	err = c.connectCollection(c.colNameEpisode)
 	if err != nil {
 		return err
 	}

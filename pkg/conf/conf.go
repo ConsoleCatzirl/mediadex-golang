@@ -19,9 +19,9 @@ type ActionConf struct {
 }
 
 type PathsConf struct {
-	Movies []string `yaml:"movies"`
-	Music  []string `yaml:"music"`
-	Series []string `yaml:"series"`
+	Features []string `yaml:"movies"`
+	Music    []string `yaml:"music"`
+	Episodes []string `yaml:"series"`
 }
 
 type BackendConf struct {
@@ -38,11 +38,11 @@ type ArangoConf struct {
 		Insecure bool   `yaml:"insecure"`
 	} `yaml:"auth"`
 	Settings struct {
-		DbName    string `yaml:"database_name"`
-		ColPrefix string `yaml:"collection_prefix"`
-		MovieCol  string `yaml:"movie_collection"`
-		MusicCol  string `yaml:"music_collection"`
-		SeriesCol string `yaml:"series_collection"`
+		DbName     string `yaml:"database_name"`
+		ColPrefix  string `yaml:"collection_prefix"`
+		EpisodeCol string `yaml:"series_collection"`
+		FeatureCol string `yaml:"movie_collection"`
+		MusicCol   string `yaml:"music_collection"`
 	} `yaml:"settings"`
 }
 
@@ -55,9 +55,9 @@ type OpenSearchConf struct {
 	} `yaml:"auth"`
 	Settings struct {
 		IndexPrefix  string `yaml:"index_prefix"`
-		MoviesIndex  string `yaml:"movie_index"`
+		EpisodeIndex string `yaml:"series_index"`
+		FeatureIndex string `yaml:"movie_index"`
 		MusicIndex   string `yaml:"music_index"`
-		SeriesIndex  string `yaml:"series_index"`
 		ReplicaCount int    `yaml:"replicas"`
 		ShardCount   int    `yaml:"shards"`
 	} `yaml:"settings"`

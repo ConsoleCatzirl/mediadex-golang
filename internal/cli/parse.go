@@ -17,12 +17,12 @@ func ParseConf() (*conf.Conf, error) {
 	flag.BoolVar(&vaccuum, "vaccuum", false, "Remove backend entries for non-existent files")
 
 	// list of additional search paths
-	var moviesPaths arrayFlags
-	flag.Var(&moviesPaths, "movies", "Paths to search for movies (may be given multiple times)")
+	var featurePaths arrayFlags
+	flag.Var(&featurePaths, "movies", "Paths to search for movies (may be given multiple times)")
 	var musicPaths arrayFlags
 	flag.Var(&musicPaths, "music", "Paths to search for music (may be given multiple times)")
-	var seriesPaths arrayFlags
-	flag.Var(&seriesPaths, "series", "Paths to search for series (may be given multiple times)")
+	var episodePaths arrayFlags
+	flag.Var(&episodePaths, "series", "Paths to search for series (may be given multiple times)")
 
 	// get values
 	flag.Parse()
@@ -49,16 +49,16 @@ func ParseConf() (*conf.Conf, error) {
 	}
 
 	// append search paths
-	for _, path := range moviesPaths {
-		config.Paths.Movies = append(config.Paths.Movies, path)
+	for _, path := range featurePaths {
+		config.Paths.Features = append(config.Paths.Features, path)
 	}
 
 	for _, path := range musicPaths {
 		config.Paths.Music = append(config.Paths.Music, path)
 	}
 
-	for _, path := range seriesPaths {
-		config.Paths.Series = append(config.Paths.Series, path)
+	for _, path := range episodePaths {
+		config.Paths.Episodes = append(config.Paths.Episodes, path)
 	}
 
 	if err != nil {

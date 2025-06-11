@@ -9,13 +9,13 @@ import (
 )
 
 type OpenSearchClient struct {
-	ctx       context.Context
-	config    *conf.OpenSearchConf
-	itemPipe  chan item.Item
-	upstream  *opensearchapi.Client
-	moviesIdx string
-	musicIdx  string
-	seriesIdx string
+	ctx        context.Context
+	config     *conf.OpenSearchConf
+	itemPipe   chan item.Item
+	upstream   *opensearchapi.Client
+	featureIdx string
+	musicIdx   string
+	episodeIdx string
 }
 
 type OpenSearchIndexSettings struct {
@@ -33,9 +33,9 @@ func MakeOpenSearchClient(cfg *conf.OpenSearchConf, pipe chan item.Item) *OpenSe
 		config:   cfg,
 		itemPipe: pipe,
 
-		moviesIdx: cfg.Settings.IndexPrefix + cfg.Settings.MoviesIndex,
-		musicIdx:  cfg.Settings.IndexPrefix + cfg.Settings.MusicIndex,
-		seriesIdx: cfg.Settings.IndexPrefix + cfg.Settings.SeriesIndex,
+		featureIdx: cfg.Settings.IndexPrefix + cfg.Settings.FeatureIndex,
+		musicIdx:   cfg.Settings.IndexPrefix + cfg.Settings.MusicIndex,
+		episodeIdx: cfg.Settings.IndexPrefix + cfg.Settings.EpisodeIndex,
 	}
 
 	return newClient
@@ -51,7 +51,7 @@ func (c *OpenSearchClient) Connect() error {
 	// ensure indices exist
 	settings := c.indexSettings()
 
-	err = c.assertIndex(c.moviesIdx, settings)
+	err = c.assertIndex(c.featureIdx, settings)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (c *OpenSearchClient) Connect() error {
 		return err
 	}
 
-	err = c.assertIndex(c.seriesIdx, settings)
+	err = c.assertIndex(c.episodeIdx, settings)
 	if err != nil {
 		return err
 	}
