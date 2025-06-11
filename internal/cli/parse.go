@@ -16,7 +16,7 @@ func ParseConf() (*conf.Conf, error) {
 	flag.BoolVar(&dryrun, "dryrun", false, "Scan files without writing to a backend")
 	flag.BoolVar(&vaccuum, "vaccuum", false, "Remove backend entries for non-existent files")
 
-	// list of search paths
+	// list of additional search paths
 	var moviesPaths arrayFlags
 	flag.Var(&moviesPaths, "movies", "Paths to search for movies (may be given multiple times)")
 	var musicPaths arrayFlags
@@ -27,7 +27,12 @@ func ParseConf() (*conf.Conf, error) {
 	// get values
 	flag.Parse()
 
-	config, err := ReadConfigFile(confFile)
+	config, err := readConfigFile(confFile)
+	if err != nil {
+		return nil, err
+	}
+
+	err = config.AddDefaults()
 	if err != nil {
 		return nil, err
 	}

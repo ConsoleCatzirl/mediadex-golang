@@ -34,7 +34,7 @@ func openFile(path string, cfg *conf.MagicConf) error {
 	return nil
 }
 
-func ReadConfigFile(path string) (*conf.Conf, error) {
+func readConfigFile(path string) (*conf.Conf, error) {
 	var err error
 
 	log.Printf("Reading config file: %s", path)
@@ -70,11 +70,6 @@ func ReadConfigFile(path string) (*conf.Conf, error) {
 
 	if newConf == nil || newConf.Mediadex == nil {
 		return nil, errors.New("Empty configuration")
-	}
-
-	err = newConf.Mediadex.AddDefaults()
-	if err != nil {
-		return nil, err
 	}
 
 	return newConf.Mediadex, nil
