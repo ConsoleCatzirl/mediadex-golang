@@ -4,6 +4,7 @@ import "internal/item"
 
 type Client interface {
 	Connect() error
-	Index() error
+	Index()
 	LookupItem(string) (item.Item, error)
+	UpsertItem(item.Item) error
 }

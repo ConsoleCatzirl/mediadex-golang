@@ -10,8 +10,8 @@ func TestFamilyString(t *testing.T) {
 		given Family
 		want  string
 	}{
-		{FeatureFamily, "feature"},
 		{EpisodeFamily, "episode"},
+		{FeatureFamily, "feature"},
 		{MusicFamily, "music"},
 	}
 

@@ -1,0 +1,19 @@
+mediadex:
+  paths:
+    movies:
+      - /non/existent/path
+    music:
+      - /non/existent/path/one
+      - /non/existent/path/two
+
+  backends:
+    arangodb:
+      auth:
+        user: root
+        pass: insecure
+        insecure: true
+    opensearch:
+      auth:
+        user: admin
+        pass: admin
+        insecure: true

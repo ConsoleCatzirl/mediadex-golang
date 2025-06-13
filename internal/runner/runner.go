@@ -10,8 +10,7 @@ import (
 type Runner interface {
 	Run() error
 
-	InArango(*item.FileItem) (bool, error)
-	InOpenSearch(*item.FileItem) (bool, error)
+	InBackend(*item.FileItem, backend.Client) (bool, error)
 }
 
 type mediaRunner struct {
@@ -56,13 +55,14 @@ func (r *mediaRunner) Run() error {
 			log.Printf("Trace: file pipe is empty and closed")
 			return nil
 		}
+		log.Printf("Trace: processing %s", fItem.FullPath)
 
 		var skipArango, skipOpenSearch bool
 
 		if !r.action.Force {
 			log.Println("Trace: searching for existing document")
 
-			foundArango, err := r.InArango(fItem)
+			foundArango, err := r.InBackend(fItem, r.arangoBackend)
 			if err != nil {
 				log.Printf("Error: %s", err.Error())
 			} else if foundArango {
@@ -70,7 +70,7 @@ func (r *mediaRunner) Run() error {
 				skipArango = true
 			}
 
-			foundOpenSearch, err := r.InOpenSearch(fItem)
+			foundOpenSearch, err := r.InBackend(fItem, r.openSearchBackend)
 			if err != nil {
 				log.Printf("Error: %s", err.Error())
 			} else if foundOpenSearch {
@@ -78,8 +78,6 @@ func (r *mediaRunner) Run() error {
 				skipOpenSearch = true
 			}
 		}
-
-		log.Println("Trace: parsing more media metadata")
 
 		var mediaItem item.Item
 		switch r.itemFamily {
@@ -97,24 +95,45 @@ func (r *mediaRunner) Run() error {
 			continue // skip to next item from pipe
 		}
 
-		if !skipArango && r.arangoBackend != nil {
-			log.Println("Trace: sending item to arangodb")
-			r.arangoPipe <- mediaItem
-		}
+		mediaItem.AddMetadata()
 
-		if !skipOpenSearch && r.openSearchBackend != nil {
-			log.Println("Trace: sending item to opensearch")
-			r.openSearchPipe <- mediaItem
+		if !r.action.DryRun {
+			if !skipArango && r.arangoBackend != nil {
+				log.Println("Trace: sending item to arangodb")
+				r.arangoPipe <- mediaItem
+			}
+
+			if !skipOpenSearch && r.openSearchBackend != nil {
+				log.Println("Trace: sending item to opensearch")
+				r.openSearchPipe <- mediaItem
+			}
 		}
 	}
 }
 
-func (r *mediaRunner) InArango(fItem *item.FileItem) (bool, error) {
-	log.Println("Trace: checking arango for file item")
-	return false, nil
-}
+func (r *mediaRunner) InBackend(fItem *item.FileItem, client backend.Client) (bool, error) {
+	if fItem == nil {
+		return false, nil
+	}
 
-func (r *mediaRunner) InOpenSearch(fItem *item.FileItem) (bool, error) {
-	log.Println("Trace: checking opensearch for file item")
+	found, err := client.LookupItem(fItem.Checksum)
+	if err != nil {
+		return false, err
+	}
+	if found != nil {
+		jDoc, err := found.JsonDoc()
+		if err != nil {
+			return false, err
+		}
+		if jDoc != nil {
+			same, err := fItem.SameFile(jDoc.FileStats)
+			if err != nil {
+				return false, err
+			}
+			if same {
+				return true, nil
+			}
+		}
+	}
 	return false, nil
 }

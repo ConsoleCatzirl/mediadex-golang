@@ -14,17 +14,17 @@ import (
 type Worker struct {
 	config *conf.Conf
 
+	episodeWalkers []walker.Walker
 	featureWalkers []walker.Walker
 	musicWalkers   []walker.Walker
-	episodeWalkers []walker.Walker
 
+	prePipeEpisode chan *item.FileItem
 	prePipeFeature chan *item.FileItem
 	prePipeMusic   chan *item.FileItem
-	prePipeEpisode chan *item.FileItem
 
+	episodeRunners []runner.Runner
 	featureRunners []runner.Runner
 	musicRunners   []runner.Runner
-	episodeRunners []runner.Runner
 
 	postPipeArango     chan item.Item
 	postPipeOpenSearch chan item.Item
@@ -51,9 +51,9 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 	newWorker := &Worker{
 		config: config,
 
+		prePipeEpisode: make(chan *item.FileItem, pipeSize),
 		prePipeFeature: make(chan *item.FileItem, pipeSize),
 		prePipeMusic:   make(chan *item.FileItem, pipeSize),
-		prePipeEpisode: make(chan *item.FileItem, pipeSize),
 
 		postPipeArango:     make(chan item.Item, pipeSize),
 		postPipeOpenSearch: make(chan item.Item, pipeSize),
@@ -68,7 +68,12 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 			config.Backend.ArangoDB,
 			newWorker.postPipeArango,
 		)
-		newWorker.arangoBackend = newArangoClient
+		err = newArangoClient.Connect()
+		if err != nil {
+			log.Printf("Error: ArangoDB client failed to connect: %v", err)
+		} else {
+			newWorker.arangoBackend = newArangoClient
+		}
 	}
 
 	// add opensearch backend
@@ -78,7 +83,46 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 			config.Backend.OpenSearch,
 			newWorker.postPipeOpenSearch,
 		)
-		newWorker.openSearchBackend = newOpenSearchClient
+		err = newOpenSearchClient.Connect()
+		if err != nil {
+			log.Printf("Error: OpenSearch client failed to connect: %v", err)
+		} else {
+			newWorker.openSearchBackend = newOpenSearchClient
+		}
+	}
+
+	if newWorker.arangoBackend == nil && newWorker.openSearchBackend == nil {
+		return nil, errors.New("Error: no backend connected")
+	}
+
+	if len(config.Paths.Episodes) > 0 {
+		// add episode walkers
+		log.Println("Trace: creating series walkers")
+		newEpisodeWalkers := walker.MakeWalkers(
+			config.Paths.Episodes,
+			&config.Actions,
+			newWorker.prePipeEpisode,
+		)
+		for _, walker := range newEpisodeWalkers {
+			newWorker.episodeWalkers = append(newWorker.episodeWalkers, walker)
+		}
+
+		// add episode runners
+		log.Println("Trace: creating series runners")
+		newEpisodeRunners := make([]runner.Runner, 0)
+		for _ = range runnerCount {
+			newRunner := runner.NewRunner(
+				&config.Actions,
+				item.EpisodeFamily,
+				newWorker.prePipeEpisode,
+				newWorker.postPipeArango,
+				newWorker.postPipeOpenSearch,
+				newWorker.arangoBackend,
+				newWorker.openSearchBackend,
+			)
+			newEpisodeRunners = append(newEpisodeRunners, newRunner)
+		}
+		newWorker.episodeRunners = newEpisodeRunners
 	}
 
 	if len(config.Paths.Features) > 0 {
@@ -142,36 +186,6 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		newWorker.musicRunners = newMusicRunners
 	}
 
-	if len(config.Paths.Episodes) > 0 {
-		// add episode walkers
-		log.Println("Trace: creating series walkers")
-		newEpisodeWalkers := walker.MakeWalkers(
-			config.Paths.Episodes,
-			&config.Actions,
-			newWorker.prePipeEpisode,
-		)
-		for _, walker := range newEpisodeWalkers {
-			newWorker.episodeWalkers = append(newWorker.episodeWalkers, walker)
-		}
-
-		// add episode runners
-		log.Println("Trace: creating series runners")
-		newEpisodeRunners := make([]runner.Runner, 0)
-		for _ = range runnerCount {
-			newRunner := runner.NewRunner(
-				&config.Actions,
-				item.EpisodeFamily,
-				newWorker.prePipeEpisode,
-				newWorker.postPipeArango,
-				newWorker.postPipeOpenSearch,
-				newWorker.arangoBackend,
-				newWorker.openSearchBackend,
-			)
-			newEpisodeRunners = append(newEpisodeRunners, newRunner)
-		}
-		newWorker.episodeRunners = newEpisodeRunners
-	}
-
 	log.Println("Trace: new worker created")
 	return newWorker, nil
 }
@@ -189,41 +203,60 @@ func (w *Worker) Work() error {
 	log.Println("Trace: starting backend indexers")
 
 	var wgArango, wgOpenSearch, wgBackends sync.WaitGroup
-	wgArango.Add(1)     // todo: conf setting
-	wgOpenSearch.Add(1) // todo: conf setting
-	wgBackends.Add(2)   // number of backends
 
-	// close backend pipes individually
-	go func() {
-		defer wgArango.Done()
-		log.Println("Trace: arango indexer starting")
-		w.arangoBackend.Index()
-		log.Println("Trace: arango indexer finished")
-	}()
+	if w.arangoBackend != nil {
+		wgArango.Add(1) // todo: conf setting
+		wgBackends.Add(1)
 
-	go func() {
-		defer wgOpenSearch.Done()
-		log.Println("Trace: opensearch indexer starting")
-		w.openSearchBackend.Index()
-		log.Println("Trace:  opensearch indexer finished")
-	}()
+		// close backend pipe after indexing finishes
+		go func() {
+			defer wgArango.Done()
+			log.Println("Trace: arango indexer starting")
+			w.arangoBackend.Index()
+			log.Println("Trace: arango indexer finished")
+		}()
 
-	// signal all backend complete
-	go func() {
-		defer wgBackends.Done()
-		wgArango.Wait()
-	}()
-	go func() {
-		defer wgBackends.Done()
-		wgOpenSearch.Wait()
-	}()
+		// signal backend complete
+		go func() {
+			defer wgBackends.Done()
+			wgArango.Wait()
+		}()
+	}
+
+	if w.openSearchBackend != nil {
+		wgOpenSearch.Add(1) // todo: conf setting
+		wgBackends.Add(1)
+
+		// close backend pipe after indexing finishes
+		go func() {
+			defer wgOpenSearch.Done()
+			log.Println("Trace: opensearch indexer starting")
+			w.openSearchBackend.Index()
+			log.Println("Trace: opensearch indexer finished")
+		}()
+
+		// signal backend complete
+		go func() {
+			defer wgBackends.Done()
+			wgOpenSearch.Wait()
+		}()
+	}
 
 	log.Println("Trace: starting core runners")
 
 	var wgRunners sync.WaitGroup
+	wgRunners.Add(len(w.episodeRunners))
 	wgRunners.Add(len(w.featureRunners))
 	wgRunners.Add(len(w.musicRunners))
-	wgRunners.Add(len(w.episodeRunners))
+
+	for _, runner := range w.episodeRunners {
+		go func() {
+			defer wgRunners.Done()
+			log.Println("Trace: series runner starting")
+			runner.Run()
+			log.Println("Trace: series runner finished")
+		}()
+	}
 
 	for _, runner := range w.featureRunners {
 		go func() {
@@ -243,15 +276,6 @@ func (w *Worker) Work() error {
 		}()
 	}
 
-	for _, runner := range w.episodeRunners {
-		go func() {
-			defer wgRunners.Done()
-			log.Println("Trace: series runner starting")
-			runner.Run()
-			log.Println("Trace: series runner finished")
-		}()
-	}
-
 	// close all backend pipes together after all runners finish
 	go func() {
 		defer close(w.postPipeArango)
@@ -264,10 +288,18 @@ func (w *Worker) Work() error {
 	log.Println("Trace: starting file walkers")
 
 	var wgFeatureWalkers, wgMusicWalkers, wgEpisodeWalkers sync.WaitGroup
+	wgEpisodeWalkers.Add(len(w.episodeWalkers))
 	wgFeatureWalkers.Add(len(w.featureWalkers))
 	wgMusicWalkers.Add(len(w.musicWalkers))
-	wgEpisodeWalkers.Add(len(w.episodeWalkers))
 
+	for _, walker := range w.episodeWalkers {
+		go func() {
+			defer wgEpisodeWalkers.Done()
+			log.Println("Trace: series walker starting")
+			walker.Walk()
+			log.Println("Trace: series walker finished")
+		}()
+	}
 	for _, walker := range w.featureWalkers {
 		go func() {
 			defer wgFeatureWalkers.Done()
@@ -284,16 +316,13 @@ func (w *Worker) Work() error {
 			log.Println("Trace: music walker finished")
 		}()
 	}
-	for _, walker := range w.episodeWalkers {
-		go func() {
-			defer wgEpisodeWalkers.Done()
-			log.Println("Trace: series walker starting")
-			walker.Walk()
-			log.Println("Trace: series walker finished")
-		}()
-	}
 
 	// close each file pipe after each walker type finishes
+	go func() {
+		defer close(w.prePipeEpisode)
+		wgEpisodeWalkers.Wait()
+		log.Println("Trace: series walkers finished; closing pipe")
+	}()
 	go func() {
 		defer close(w.prePipeFeature)
 		wgFeatureWalkers.Wait()
@@ -304,11 +333,6 @@ func (w *Worker) Work() error {
 		defer close(w.prePipeMusic)
 		wgMusicWalkers.Wait()
 		log.Println("Trace: music walkers finished; closing pipe")
-	}()
-	go func() {
-		defer close(w.prePipeEpisode)
-		wgEpisodeWalkers.Wait()
-		log.Println("Trace: series walkers finished; closing pipe")
 	}()
 
 	// finally, wait for backends to finish

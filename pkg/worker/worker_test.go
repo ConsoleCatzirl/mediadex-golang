@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"internal/backend"
 	"internal/item"
 	"internal/runner"
 	"internal/walker"
@@ -29,11 +30,11 @@ func (f *fakeClient) Connect() error {
 	return nil
 }
 
-func (f *fakeClient) Index() error {
+func (f *fakeClient) Index() {
 	for {
 		_, more := <-f.pipe
 		if !more {
-			return nil
+			break
 		}
 		r := rand.IntN(100) + 100
 		t := time.Duration(r)
@@ -41,8 +42,12 @@ func (f *fakeClient) Index() error {
 	}
 }
 
-func (f *fakeClient) LookupItem(x string) (item.Item, error) {
+func (f *fakeClient) LookupItem(_ string) (item.Item, error) {
 	return nil, nil
+}
+
+func (f *fakeClient) UpsertItem(_ item.Item) error {
+	return nil
 }
 
 type fakeRunner struct {
@@ -65,11 +70,7 @@ func (f *fakeRunner) Run() error {
 	}
 }
 
-func (f *fakeRunner) InArango(fItem *item.FileItem) (bool, error) {
-	return false, nil
-}
-
-func (f *fakeRunner) InOpenSearch(fItem *item.FileItem) (bool, error) {
+func (f *fakeRunner) InBackend(_ *item.FileItem, _ backend.Client) (bool, error) {
 	return false, nil
 }
 

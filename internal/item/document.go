@@ -11,26 +11,26 @@ type JsonDocument struct {
 	TvdbInfo    interface{} `json:"tvdb"`    // todo: upstream type
 }
 
-type arangoDocument struct {
+type ArangoDocument struct {
 	*JsonDocument
 	Key string `json:"_key"`
 }
 
-func (j *JsonDocument) Arango() *arangoDocument {
-	newDoc := &arangoDocument{
+func (j *JsonDocument) Arango() *ArangoDocument {
+	newDoc := &ArangoDocument{
 		JsonDocument: j,
 		Key:          j.FileStats.Checksum,
 	}
 	return newDoc
 }
 
-type openSearchDocument struct {
+type OpenSearchDocument struct {
 	*JsonDocument
 	ID string `json:"_id"`
 }
 
-func (j *JsonDocument) OpenSearch() *openSearchDocument {
-	newDoc := &openSearchDocument{
+func (j *JsonDocument) OpenSearch() *OpenSearchDocument {
+	newDoc := &OpenSearchDocument{
 		JsonDocument: j,
 		ID:           j.FileStats.Checksum,
 	}

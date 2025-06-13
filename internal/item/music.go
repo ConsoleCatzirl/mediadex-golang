@@ -1,11 +1,15 @@
 package item
 
 type MusicItem struct {
-	baseItem
+	*baseItem
 }
 
 func FileToMusic(fItem *FileItem) *MusicItem {
-	return &MusicItem{baseItem{JsonDocument{FileStats: fItem}}}
+	return &MusicItem{&baseItem{&JsonDocument{FileStats: fItem}}}
+}
+
+func JsonToMusic(jDoc *JsonDocument) *MusicItem {
+	return &MusicItem{&baseItem{jDoc}}
 }
 
 func (f *MusicItem) AddMetadata() error {

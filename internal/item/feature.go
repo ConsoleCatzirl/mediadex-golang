@@ -1,11 +1,15 @@
 package item
 
 type FeatureItem struct {
-	baseItem
+	*baseItem
 }
 
 func FileToFeature(fItem *FileItem) *FeatureItem {
-	return &FeatureItem{baseItem{JsonDocument{FileStats: fItem}}}
+	return &FeatureItem{&baseItem{&JsonDocument{FileStats: fItem}}}
+}
+
+func JsonToFeature(jDoc *JsonDocument) *FeatureItem {
+	return &FeatureItem{&baseItem{jDoc}}
 }
 
 func (f *FeatureItem) AddMetadata() error {

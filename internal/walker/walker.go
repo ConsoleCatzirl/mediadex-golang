@@ -50,7 +50,7 @@ func (w *mediaWalker) ProcessFile(path string, dir fs.DirEntry, err error) error
 
 	if !dType.IsRegular() {
 		// Skip special file types
-		log.Printf("Skipping non-regular file: '%s'", path)
+		log.Printf("Trace: skipping non-regular file: '%s'", path)
 		return nil
 	}
 
@@ -62,7 +62,6 @@ func (w *mediaWalker) ProcessFile(path string, dir fs.DirEntry, err error) error
 	}
 
 	// send file item to a runner
-	log.Printf("Trace: sending item to runner: %s", path)
 	w.filePipe <- newFileItem
 	return nil
 }

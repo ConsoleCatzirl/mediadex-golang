@@ -1,11 +1,15 @@
 package item
 
 type EpisodeItem struct {
-	baseItem
+	*baseItem
 }
 
 func FileToEpisode(fItem *FileItem) *EpisodeItem {
-	return &EpisodeItem{baseItem{JsonDocument{FileStats: fItem}}}
+	return &EpisodeItem{&baseItem{&JsonDocument{FileStats: fItem}}}
+}
+
+func JsonToEpisode(jDoc *JsonDocument) *EpisodeItem {
+	return &EpisodeItem{&baseItem{jDoc}}
 }
 
 func (f *EpisodeItem) AddMetadata() error {

@@ -38,25 +38,22 @@ func (f *FileItem) addChecksum() error {
 	// Read at most 4MB of every file to compare uniqueness
 	if f.FileSize > 2*chunkSize {
 		// Only read first and last chunks
-		n, err := io.CopyN(hasher, data, chunkSize)
+		_, err := io.CopyN(hasher, data, chunkSize)
 		if err != nil {
 			log.Printf("Error reading first chunk: %v", err)
-			log.Printf("Bytes read: %v", n)
 			return err
 		}
 
 		data.Seek(0-(chunkSize+1), io.SeekEnd)
-		n, err = io.CopyN(hasher, data, chunkSize)
+		_, err = io.CopyN(hasher, data, chunkSize)
 		if err != nil {
 			log.Printf("Error reading last chunk: %v", err)
-			log.Printf("Bytes read: %v", n)
 			return err
 		}
 	} else {
 		// Read entire file, up to two chunks
 		n, err := io.CopyN(hasher, data, 2*chunkSize)
 		if int64(n) < f.FileSize {
-			log.Printf("Bytes read: %v", n)
 			if err != nil {
 				log.Printf("Error reading file: %v", err)
 				return err

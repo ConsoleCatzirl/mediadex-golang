@@ -1,0 +1,37 @@
+volumes:
+  arangodb:
+  arangodb-apps:
+  opensearch-data:
+
+services:
+  arangodb:
+    image: arangodb/arangodb:latest
+    volumes:
+      - arangodb:/var/lib/arangodb3
+      - arangodb-apps:/var/lib/arangodb3-apps
+    ports:
+      - 8529:8529
+    environment:
+      ARANGO_ROOT_PASSWORD: insecure
+
+  opensearch-node:
+    image: opensearchproject/opensearch:1
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
+      - 9600:9600
+      - 9650:9650
+    environment:
+      cluster.name: mediadex-test
+      discovery.type: single-node
+      node.name: opensearch-node
+      OPENSEARCH_DISABLE_GC_LOGS: true
+  opensearch-dash:
+    image: opensearchproject/opensearch-dashboards:1
+    ports:
+      - 5601:5601
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch-node:9200"]'
+
