@@ -52,43 +52,49 @@ func (r *mediaRunner) Run() error {
 	for {
 		fItem, more := <-r.filePipe
 		if !more {
-			log.Printf("Trace: file pipe is empty and closed")
+			//log.Printf("Trace: file pipe is empty and closed")
 			return nil
 		}
-		log.Printf("Trace: processing %s", fItem.FullPath)
+		log.Printf("Trace: processing %s", fItem.FileName)
 
 		var skipArango, skipOpenSearch bool
 
 		if !r.action.Force {
-			log.Println("Trace: searching for existing document")
+			//log.Printf("Trace: searching for existing document: %s", fItem.FileName)
 
 			foundArango, err := r.InBackend(fItem, r.arangoBackend)
 			if err != nil {
-				log.Printf("Error: %s", err.Error())
+				log.Printf("Error finding item: %s", err.Error())
+				log.Printf("Trace: found error and item in ArangoDB: %s", fItem.FileName)
 			} else if foundArango {
-				log.Println("Trace: found item in ArangoDB")
+				//log.Printf("Trace: found item in ArangoDB: %s", fItem.FileName)
 				skipArango = true
 			}
 
 			foundOpenSearch, err := r.InBackend(fItem, r.openSearchBackend)
 			if err != nil {
-				log.Printf("Error: %s", err.Error())
+				log.Printf("Error finding item: %s", err.Error())
 			} else if foundOpenSearch {
-				log.Println("Trace: found item in OpenSearch")
+				//log.Printf("Trace: found item in OpenSearch: %s", fItem.FileName)
 				skipOpenSearch = true
 			}
+		}
+
+		if skipArango && skipOpenSearch {
+			log.Printf("Trace: skipping unchanged %s: %s", r.itemFamily, fItem.FileName)
+			continue
 		}
 
 		var mediaItem item.Item
 		switch r.itemFamily {
 		case item.FeatureFamily:
-			log.Println("Trace: creating movie item")
+			//log.Printf("Trace: creating movie item")
 			mediaItem = item.FileToFeature(fItem)
 		case item.EpisodeFamily:
-			log.Println("Trace: creating series item")
+			//log.Printf("Trace: creating series item")
 			mediaItem = item.FileToEpisode(fItem)
 		case item.MusicFamily:
-			log.Println("Trace: creating music item")
+			//log.Printf("Trace: creating music item")
 			mediaItem = item.FileToMusic(fItem)
 		default:
 			log.Printf("Error: unknown item family: '%s'", r.itemFamily)
@@ -99,12 +105,12 @@ func (r *mediaRunner) Run() error {
 
 		if !r.action.DryRun {
 			if !skipArango && r.arangoBackend != nil {
-				log.Println("Trace: sending item to arangodb")
+				//log.Printf("Trace: sending item to arangodb: %s", fItem.FileName)
 				r.arangoPipe <- mediaItem
 			}
 
 			if !skipOpenSearch && r.openSearchBackend != nil {
-				log.Println("Trace: sending item to opensearch")
+				//log.Printf("Trace: sending item to opensearch: %s", fItem.FileName)
 				r.openSearchPipe <- mediaItem
 			}
 		}
@@ -113,26 +119,39 @@ func (r *mediaRunner) Run() error {
 
 func (r *mediaRunner) InBackend(fItem *item.FileItem, client backend.Client) (bool, error) {
 	if fItem == nil {
+		log.Printf("Trace: InBackned: nil item not in backend")
 		return false, nil
 	}
+	key := fItem.Checksum
+	path := fItem.FileName
 
-	found, err := client.LookupItem(fItem.Checksum)
-	if err != nil {
+	found, err := client.LookupItem(key)
+	if err != nil && found != nil {
+		return true, err
+	} else if err != nil {
 		return false, err
 	}
 	if found != nil {
+		//log.Printf("Trace: InBackned: found item %s: %s", key, path)
 		jDoc, err := found.JsonDoc()
 		if err != nil {
+			log.Printf("Error: InBackned: unable to get json doc: %s", key)
 			return false, err
 		}
 		if jDoc != nil {
 			same, err := fItem.SameFile(jDoc.FileStats)
 			if err != nil {
+				log.Printf("Error: checksum match; file stats mismatch: %s", key)
 				return false, err
 			}
 			if same {
+				//log.Printf("Trace: InBackned: file item exists in backend: %s", path)
 				return true, nil
+			} else {
+				log.Printf("Trace: InBackned: file stats mismatch: %s: %s", key, path)
 			}
+		} else {
+			log.Printf("Trace: InBackned: empty json doc: %s", key)
 		}
 	}
 	return false, nil

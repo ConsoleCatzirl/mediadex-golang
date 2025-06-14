@@ -18,10 +18,11 @@ vet:
 	go vet internal/item
 	go vet internal/runner
 	go vet internal/walker
-	go vet ./test
+	go vet test
 
 test: vet
-	go test -v pkg/worker internal/item ./test
+	go test -v internal/item internal/runner internal/walker
+	go test -v pkg/worker test
 
 clean:
 	rm mediadex

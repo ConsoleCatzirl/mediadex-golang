@@ -128,7 +128,7 @@ func (c *OpenSearchClient) assureIndex(name string, settings *OpenSearchIndexSet
 	defer exists.Body.Close()
 
 	if exists.StatusCode == http.StatusOK {
-		log.Printf("Trace: index %s exists", name)
+		//log.Printf("Trace: index %s exists", name)
 	} else {
 		// create index
 		jsonBytes, err := json.Marshal(settings)
@@ -174,6 +174,7 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 		return nil, err
 	}
 	if episodeDoc != nil {
+		//log.Printf("Trace: opensearch.LookupItem: found episode doc: %v", episodeDoc)
 		eItem := item.JsonToEpisode(episodeDoc.JsonDocument)
 		return eItem, nil
 	}
@@ -183,8 +184,9 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 		return nil, err
 	}
 	if featureDoc != nil {
-		eItem := item.JsonToFeature(featureDoc.JsonDocument)
-		return eItem, nil
+		//log.Printf("Trace: opensearch.LookupItem: found feature doc: %v", episodeDoc)
+		fItem := item.JsonToFeature(featureDoc.JsonDocument)
+		return fItem, nil
 	}
 
 	musicDoc, err := c.getDoc(c.musicIdx, id)
@@ -192,44 +194,54 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 		return nil, err
 	}
 	if musicDoc != nil {
-		eItem := item.JsonToMusic(musicDoc.JsonDocument)
-		return eItem, nil
+		//log.Printf("Trace: opensearch.LookupItem: found music doc: %v", episodeDoc)
+		mItem := item.JsonToMusic(musicDoc.JsonDocument)
+		return mItem, nil
 	}
 
 	return nil, nil
 }
 
 func (c *OpenSearchClient) getDoc(index string, docId string) (*item.OpenSearchDocument, error) {
-	found := &item.OpenSearchDocument{}
+	var foundBytes []byte
+	foundDoc := &item.JsonDocument{}
+
+	log.Printf("Trace: opensearch.getDoc: getting %s from %s", docId, index)
 
 	req := opensearchapi.DocumentGetReq{
 		Index:      index,
 		DocumentID: docId,
 	}
-	resp, err := c.upstream.Client.Do(c.ctx, req, nil)
+
+	resp, err := c.upstream.Document.Get(c.ctx, req)
+	if !resp.Found {
+		return nil, nil
+	} else {
+		if resp.Source != nil {
+			//log.Printf("Trace: opensearch.getDoc: using 'source'")
+			foundBytes = resp.Source
+		} else if resp.Fields != nil {
+			//log.Printf("Trace: opensearch.getDoc: using 'fields'")
+			foundBytes = resp.Fields
+		} else {
+			//log.Printf("Trace: opensearch.getDoc: 'source' and 'fields' both empty")
+
+			respAsJson, err := json.MarshalIndent(resp, "", "  ")
+			if err != nil {
+				return nil, err
+			}
+			log.Printf("Trace: opensearch getDoc: document:\n%s\n", respAsJson)
+
+			return nil, errors.New("Document found, but empty")
+		}
+	}
+
+	err = json.Unmarshal(foundBytes, foundDoc)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode == 200 {
-		var readBytes []byte
-
-		_, err := resp.Body.Read(readBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(readBytes, &found)
-		if err != nil {
-			return nil, err
-		}
-	} else if resp.StatusCode != 404 {
-		msg := fmt.Sprintf("Error getting OpenSearch document: Status Code: %v", resp.StatusCode)
-		log.Printf(msg)
-		return nil, errors.New(msg)
-	}
-
-	return found, nil
+	return foundDoc.OpenSearch(), nil
 }
 
 func (c *OpenSearchClient) UpsertItem(it item.Item) error {
@@ -252,27 +264,32 @@ func (c *OpenSearchClient) UpsertItem(it item.Item) error {
 	}
 	osDoc := jDoc.OpenSearch()
 
-	c.upsertDoc(index, osDoc)
+	err = c.upsertDoc(index, osDoc)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (c *OpenSearchClient) upsertDoc(idx string, doc *item.OpenSearchDocument) error {
-	jsonBytes, err := json.Marshal(doc)
+	jsonBytes, err := json.Marshal(doc.JsonDocument)
 	if err != nil {
 		return err
 	}
 	bodyReader := bytes.NewReader(jsonBytes)
 
+	//log.Printf("Trace: opensearch.upsertDoc: docId: %s", doc.ID)
 	req := opensearchapi.IndexReq{
 		Index:      idx,
 		DocumentID: doc.ID,
 		Body:       bodyReader,
 	}
-	resp, err := c.upstream.Client.Do(c.ctx, req, nil)
-	defer resp.Body.Close()
+	_, err = c.upstream.Index(c.ctx, req)
 	if err != nil {
 		return err
 	}
+
+	//log.Printf("Trace: opensearch.upsertDoc: result: %s", resp.Result)
 
 	return nil
 }

@@ -44,8 +44,8 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 	}
 	log.Println("Trace: valid configuration; creating worker")
 
-	pipeSize := 64   // channel buffer size
-	runnerCount := 2 // todo: conf setting
+	pipeSize := 128  // channel buffer size
+	runnerCount := 8 // todo: conf setting
 
 	// create a new worker
 	newWorker := &Worker{

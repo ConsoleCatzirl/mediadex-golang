@@ -148,7 +148,7 @@ func (c *ArangoClient) Index() {
 	for {
 		it, more := <-c.itemPipe
 		if !more {
-			log.Printf("Trace: arango pipe is empty and closed")
+			//log.Printf("Trace: arango pipe is empty and closed")
 			break
 		}
 
@@ -162,27 +162,30 @@ func (c *ArangoClient) Index() {
 func (c *ArangoClient) LookupItem(key string) (item.Item, error) {
 	episodeDoc, err := c.getDoc(c.colNameEpisode, key)
 	if err != nil {
-		log.Printf("Error getting episode document: %v", err)
+		log.Printf("Error arango.LookUp getting episode document: %v", err)
 	} else if episodeDoc != nil {
-		log.Printf("Trace: found episode document")
+		//path := episodeDoc.JsonDocument.FileStats.FullPath
+		//log.Printf("Trace: arango.LookUp found episode document: %v", path)
 		eItem := item.JsonToEpisode(episodeDoc.JsonDocument)
 		return eItem, nil
 	}
 
-	featureDoc, err := c.getDoc(c.colNameEpisode, key)
+	featureDoc, err := c.getDoc(c.colNameFeature, key)
 	if err != nil {
-		log.Printf("Error getting feature document: %v", err)
+		log.Printf("Error arango.LookUp getting feature document: %v", err)
 	} else if featureDoc != nil {
-		log.Printf("Trace: found feature document")
+		//path := featureDoc.JsonDocument.FileStats.FullPath
+		//log.Printf("Trace: arango.LookUp found feature document: %v", path)
 		fItem := item.JsonToEpisode(featureDoc.JsonDocument)
 		return fItem, nil
 	}
 
-	musicDoc, err := c.getDoc(c.colNameEpisode, key)
+	musicDoc, err := c.getDoc(c.colNameMusic, key)
 	if err != nil {
-		log.Printf("Error getting music document: %v", err)
+		log.Printf("Error getting arango.LookUp music document: %v", err)
 	} else if musicDoc != nil {
-		log.Printf("Trace: found music document")
+		//path := musicDoc.JsonDocument.FileStats.FullPath
+		//log.Printf("Trace: found arango.LookUp music document: %v", path)
 		mItem := item.JsonToEpisode(musicDoc.JsonDocument)
 		return mItem, nil
 	}
@@ -197,12 +200,15 @@ func (c *ArangoClient) getDoc(colName string, key string) (*item.ArangoDocument,
 	_, err := clxn.ReadDocument(c.ctx, key, &found)
 	if err != nil {
 		if err.Error() == "document not found" {
+			//log.Printf("Trace: arango.getDoc: item not found: %s", key)
 			return nil, nil
 		} else {
+			log.Printf("Error: arango.getDoc: error reading doc: %v", err)
 			return nil, err
 		}
 	}
 
+	//log.Printf("Trace: arango.getDoc: item found: %s", key)
 	aDoc := found.Arango()
 	return aDoc, nil
 }
@@ -218,7 +224,7 @@ func (c *ArangoClient) UpsertItem(it item.Item) error {
 	case *item.MusicItem:
 		clxn = c.colNameMusic
 	default:
-		msg := fmt.Sprintf("Error: Unknown item type: %s", t)
+		msg := fmt.Sprintf("Error: arango.UpsertItem: Unknown item type: %s", t)
 		return errors.New(msg)
 	}
 
@@ -228,25 +234,34 @@ func (c *ArangoClient) UpsertItem(it item.Item) error {
 	}
 	aDoc := jDoc.Arango()
 
-	c.upsertDoc(clxn, aDoc)
+	err = c.upsertDoc(clxn, aDoc)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (c *ArangoClient) upsertDoc(clxn string, doc *item.ArangoDocument) error {
-	found, _ := c.getDoc(clxn, doc.Key)
+	found, err := c.getDoc(clxn, doc.Key)
+	if err != nil {
+		log.Printf("Error: arango.upsertDoc: %s", err)
+		return err
+	}
 	if found == nil {
 		_, err := c.colNameMap[clxn].CreateDocument(c.ctx, doc)
 		if err != nil {
+			log.Printf("Error: arango.upsertDoc: %s", err)
 			return err
 		}
-		log.Printf("Trace: document created")
+		//log.Printf("Trace: arango.upsertDoc: document created")
 	} else {
 		_, err := c.colNameMap[clxn].UpdateDocument(c.ctx, doc.Key, doc)
 		if err != nil {
+			log.Printf("Error: arango.upsertDoc: %s", err)
 			return err
 		}
-		log.Printf("Trace: document updated")
+		//log.Printf("Trace: arango.upsertDoc: document updated")
 	}
 
 	return nil

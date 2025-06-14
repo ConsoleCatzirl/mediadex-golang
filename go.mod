@@ -17,6 +17,8 @@ replace (
 	pkg/worker => ./pkg/worker
 )
 
+replace test => ./test
+
 require (
 	internal/backend v0.0.0-00010101000000-000000000000 // indirect
 	internal/cli v0.0.0-00010101000000-000000000000
@@ -26,9 +28,11 @@ require (
 )
 
 require (
-	pkg/conf v0.0.0-00010101000000-000000000000
+	pkg/conf v0.0.0-00010101000000-000000000000 // indirect
 	pkg/worker v0.0.0-00010101000000-000000000000
 )
+
+require test v0.0.0-00010101000000-000000000000 // indirect
 
 require (
 	github.com/arangodb/go-driver/v2 v2.1.3 // indirect
@@ -47,5 +51,5 @@ require (
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
