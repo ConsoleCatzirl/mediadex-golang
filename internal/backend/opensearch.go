@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"internal/item"
 	"log"
 	"net/http"
+
+	"internal/item"
 	"pkg/conf"
 
 	"github.com/opensearch-project/opensearch-go/v4"
@@ -41,9 +42,9 @@ func MakeOpenSearchClient(cfg *conf.OpenSearchConf, pipe chan item.Item) *OpenSe
 		config:   cfg,
 		itemPipe: pipe,
 
-		episodeIdx: cfg.Settings.IndexPrefix + cfg.Settings.EpisodeIndex,
-		featureIdx: cfg.Settings.IndexPrefix + cfg.Settings.FeatureIndex,
-		musicIdx:   cfg.Settings.IndexPrefix + cfg.Settings.MusicIndex,
+		episodeIdx: cfg.Settings.IndexPrefix + cfg.Settings.EpisodeIndex + cfg.Settings.IndexSuffix,
+		featureIdx: cfg.Settings.IndexPrefix + cfg.Settings.FeatureIndex + cfg.Settings.IndexSuffix,
+		musicIdx:   cfg.Settings.IndexPrefix + cfg.Settings.MusicIndex + cfg.Settings.IndexSuffix,
 	}
 
 	return newClient
@@ -175,7 +176,7 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 	}
 	if episodeDoc != nil {
 		//log.Printf("Trace: opensearch.LookupItem: found episode doc: %v", episodeDoc)
-		eItem := item.JsonToEpisode(episodeDoc.JsonDocument)
+		eItem := item.JsonToEpisode(episodeDoc)
 		return eItem, nil
 	}
 
@@ -185,7 +186,7 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 	}
 	if featureDoc != nil {
 		//log.Printf("Trace: opensearch.LookupItem: found feature doc: %v", episodeDoc)
-		fItem := item.JsonToFeature(featureDoc.JsonDocument)
+		fItem := item.JsonToFeature(featureDoc)
 		return fItem, nil
 	}
 
@@ -195,18 +196,18 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 	}
 	if musicDoc != nil {
 		//log.Printf("Trace: opensearch.LookupItem: found music doc: %v", episodeDoc)
-		mItem := item.JsonToMusic(musicDoc.JsonDocument)
+		mItem := item.JsonToMusic(musicDoc)
 		return mItem, nil
 	}
 
 	return nil, nil
 }
 
-func (c *OpenSearchClient) getDoc(index string, docId string) (*item.OpenSearchDocument, error) {
+func (c *OpenSearchClient) getDoc(index string, docId string) (*item.JsonDocument, error) {
 	var foundBytes []byte
 	foundDoc := &item.JsonDocument{}
 
-	log.Printf("Trace: opensearch.getDoc: getting %s from %s", docId, index)
+	//log.Printf("Trace: opensearch.getDoc: getting %s from %s", docId, index)
 
 	req := opensearchapi.DocumentGetReq{
 		Index:      index,
@@ -224,14 +225,13 @@ func (c *OpenSearchClient) getDoc(index string, docId string) (*item.OpenSearchD
 			//log.Printf("Trace: opensearch.getDoc: using 'fields'")
 			foundBytes = resp.Fields
 		} else {
-			//log.Printf("Trace: opensearch.getDoc: 'source' and 'fields' both empty")
+			log.Printf("Trace: opensearch.getDoc: 'source' and 'fields' both empty")
 
 			respAsJson, err := json.MarshalIndent(resp, "", "  ")
 			if err != nil {
 				return nil, err
 			}
 			log.Printf("Trace: opensearch getDoc: document:\n%s\n", respAsJson)
-
 			return nil, errors.New("Document found, but empty")
 		}
 	}
@@ -241,7 +241,7 @@ func (c *OpenSearchClient) getDoc(index string, docId string) (*item.OpenSearchD
 		return nil, err
 	}
 
-	return foundDoc.OpenSearch(), nil
+	return foundDoc, nil
 }
 
 func (c *OpenSearchClient) UpsertItem(it item.Item) error {

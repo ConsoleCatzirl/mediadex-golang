@@ -39,6 +39,7 @@ require (
 	github.com/arangodb/go-velocypack v0.0.0-20200318135517-5af53c29c67e // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/junlicn/yami v0.0.0-20241205082406-718a5624f3fa // indirect
 	github.com/kkdai/maglev v0.2.0 // indirect

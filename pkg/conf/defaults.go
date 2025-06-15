@@ -1,6 +1,21 @@
 package conf
 
-func (c *Conf) AddDefaults() error {
+func (c *Conf) AddDefaults() {
+
+	// action defaults are all false (zero-value)
+
+	// thread defaults are minimum values
+	if c.Threads.Workers == 0 {
+		c.Threads.Workers = 1
+	}
+
+	if c.Threads.FileBuffer == 0 {
+		c.Threads.FileBuffer = 1
+	}
+
+	if c.Threads.BackendBuffer == 0 {
+		c.Threads.BackendBuffer = 1
+	}
 
 	// arango client
 	if c.Backend.ArangoDB != nil {
@@ -51,6 +66,4 @@ func (c *Conf) AddDefaults() error {
 			c.Backend.OpenSearch.Settings.EpisodeIndex = "series"
 		}
 	}
-
-	return nil
 }

@@ -1,0 +1,34 @@
+mediadex:
+  paths:
+    movies: []
+    music: []
+    series: []
+  backends:
+    arangodb:
+      auth:
+        insecure: true
+        host: localhost
+        port: 8529
+      backend:
+        database_name: "mediadex"
+        collection_prefix: ""
+        movies_collection: "movies"
+        music_collection: "music"
+        series_collection: "series"
+    opensearch:
+      auth:
+        insecure: true
+        hosts:
+          - "https://localhost:9200"
+      backend:
+        index_prefix: ""
+        index_suffix: ""
+        movie_index: "movies"
+        music_index: "music"
+        series_index: "series"
+        replicas: 0
+        shards: 1
+  threads:
+    workers_per_path_type: 1
+    channel_size_files: 1
+    channel_size_backend: 1

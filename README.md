@@ -45,51 +45,67 @@ mediadex:
 ```
 
 #### Full Example
+
+Both of the minimal examples assume that the backend is running on `localhost`,
+but alternate hosts and ports can be specified.
+
+There are also settings for index and collection naming, and for tuning channels
+and go routines.
+
 A complete list of configuration options:
 ```yaml
 mediadex:
   paths:
-    music:
-      - /path/to/music
     movies:
-      - /path/to/some/movies
-      - /path/to/more/movies
+      - /path/one
+      - /path/two
+    music:
+      - /path/three
     series:
-      - /path/to/tv/shows
-  backend:
+      - /path/four
+      - /path/five
+      - /path/six
+  backends:
     arangodb:
       auth:
-        host: arangodb.example.net
-        port: 9001
-        user: arangoUser
-        pass: arangoPassword
-        insecure: true
-      collections:
-        database_name: mediadex-test
-        collection-prefix: test-
-        movie_collection: movies
-        music_collection: music
-        series_collection: series
+        insecure: false
+        host: "arangodb.example.com"
+        port: 8529
+        user: service-user
+        pass: service-pass
+      backend:
+        database_name: "cool-project"
+        collection_prefix: "my-project-"
+        collection_suffix: "-scope0"
+        movies_collection: "Movies"
+        music_collection: "Music"
+        series_collection: "Series"
     opensearch:
       auth:
+        insecure: false
         hosts:
-          - node.example.net:9201
-          - node.example.net:9202
-        user: opensearchUser
-        pass: opensearchPassword
-        insecure: true
-      index:
-        index_prefix: mediadex-test-
-        movie_index: movies
-        music_index: music
-        series_index: series
-        replicas: 1
-        shards: 2
+          - "https://node1.example.com:9200"
+          - "https://node2.example.com:9200"
+          - "https://node2.example.com:9201"
+        user: service-user
+        pass: service-pass
+      backend:
+        index_prefix: "cool-project-"
+        index_suffix: "-scope0"
+        movie_index: "my-Movies"
+        music_index: "my-Music"
+        series_index: "my-Series"
+        replicas: 2
+        shards: 3
+  threads:
+    workers_per_path_type: 16
+    channel_size_files: 256
+    channel_size_backend: 384
 ```
 
 ## TODO
 
 * Real documentation
-* Skip items that have already been indexed
+* Logging levels / verbosity
 * Vaccuum (remove) non-existent files from backends
 * Get metadata from various websites

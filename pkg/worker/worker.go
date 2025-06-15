@@ -2,13 +2,14 @@ package worker
 
 import (
 	"errors"
+	"log"
+	"sync"
+
 	"internal/backend"
 	"internal/item"
 	"internal/runner"
 	"internal/walker"
-	"log"
 	"pkg/conf"
-	"sync"
 )
 
 type Worker struct {
@@ -44,19 +45,20 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 	}
 	log.Println("Trace: valid configuration; creating worker")
 
-	pipeSize := 128  // channel buffer size
-	runnerCount := 8 // todo: conf setting
+	runnerCount := config.Threads.Workers
+	filePipeSize := config.Threads.FileBuffer
+	backendPipeSize := config.Threads.BackendBuffer
 
 	// create a new worker
 	newWorker := &Worker{
 		config: config,
 
-		prePipeEpisode: make(chan *item.FileItem, pipeSize),
-		prePipeFeature: make(chan *item.FileItem, pipeSize),
-		prePipeMusic:   make(chan *item.FileItem, pipeSize),
+		prePipeEpisode: make(chan *item.FileItem, filePipeSize),
+		prePipeFeature: make(chan *item.FileItem, filePipeSize),
+		prePipeMusic:   make(chan *item.FileItem, filePipeSize),
 
-		postPipeArango:     make(chan item.Item, pipeSize),
-		postPipeOpenSearch: make(chan item.Item, pipeSize),
+		postPipeArango:     make(chan item.Item, backendPipeSize),
+		postPipeOpenSearch: make(chan item.Item, backendPipeSize),
 	}
 
 	// create backends first to pass them to runners

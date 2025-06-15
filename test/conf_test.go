@@ -3,9 +3,12 @@ package test
 import (
 	_ "embed"
 	"errors"
-	"pkg/conf"
+	"fmt"
 	"testing"
 
+	"pkg/conf"
+
+	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v2"
 )
 
@@ -26,6 +29,9 @@ var minimal []byte
 
 //go:embed conf/full.yaml
 var full []byte
+
+//go:embed conf/defaults.yaml
+var defaults []byte
 
 func TestConf(t *testing.T) {
 
@@ -95,5 +101,29 @@ func TestConf(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConfDefault(t *testing.T) {
+	testConf := &conf.MagicConf{}
+	err := yaml.Unmarshal(defaults, testConf)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	if testConf.Mediadex == nil {
+		t.Error(errors.New("Empty configuration"))
+		t.FailNow()
+	}
+
+	unalteredConf := *testConf.Mediadex
+	alteredConfPtr := testConf.Mediadex
+
+	alteredConfPtr.AddDefaults()
+	diff := cmp.Diff(unalteredConf, *alteredConfPtr)
+	if diff != "" {
+		msg := fmt.Sprintf("AddDefaults alters conf/defaults.yaml:\n%s", diff)
+		t.Error(errors.New(msg))
 	}
 }

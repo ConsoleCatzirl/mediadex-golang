@@ -1,11 +1,11 @@
 package runner
 
 import (
+	"testing"
+
 	"internal/item"
 	"pkg/conf"
 	"test"
-
-	"testing"
 )
 
 func TestRunner(t *testing.T) {

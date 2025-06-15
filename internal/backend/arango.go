@@ -36,9 +36,9 @@ func MakeArangoClient(cfg *conf.ArangoConf, pipe chan item.Item) *ArangoClient {
 		dbName: cfg.Settings.DbName,
 
 		colNameMap:     make(map[string]arangodb.Collection),
-		colNameEpisode: cfg.Settings.ColPrefix + cfg.Settings.EpisodeCol,
-		colNameFeature: cfg.Settings.ColPrefix + cfg.Settings.FeatureCol,
-		colNameMusic:   cfg.Settings.ColPrefix + cfg.Settings.MusicCol,
+		colNameEpisode: cfg.Settings.ColPrefix + cfg.Settings.EpisodeCol + cfg.Settings.ColSuffix,
+		colNameFeature: cfg.Settings.ColPrefix + cfg.Settings.FeatureCol + cfg.Settings.ColSuffix,
+		colNameMusic:   cfg.Settings.ColPrefix + cfg.Settings.MusicCol + cfg.Settings.ColSuffix,
 	}
 	return newClient
 }
@@ -164,9 +164,9 @@ func (c *ArangoClient) LookupItem(key string) (item.Item, error) {
 	if err != nil {
 		log.Printf("Error arango.LookUp getting episode document: %v", err)
 	} else if episodeDoc != nil {
-		//path := episodeDoc.JsonDocument.FileStats.FullPath
+		//path := episodeDoc.FileStats.FullPath
 		//log.Printf("Trace: arango.LookUp found episode document: %v", path)
-		eItem := item.JsonToEpisode(episodeDoc.JsonDocument)
+		eItem := item.JsonToEpisode(episodeDoc)
 		return eItem, nil
 	}
 
@@ -174,9 +174,9 @@ func (c *ArangoClient) LookupItem(key string) (item.Item, error) {
 	if err != nil {
 		log.Printf("Error arango.LookUp getting feature document: %v", err)
 	} else if featureDoc != nil {
-		//path := featureDoc.JsonDocument.FileStats.FullPath
+		//path := featureDoc.FileStats.FullPath
 		//log.Printf("Trace: arango.LookUp found feature document: %v", path)
-		fItem := item.JsonToEpisode(featureDoc.JsonDocument)
+		fItem := item.JsonToEpisode(featureDoc)
 		return fItem, nil
 	}
 
@@ -184,16 +184,16 @@ func (c *ArangoClient) LookupItem(key string) (item.Item, error) {
 	if err != nil {
 		log.Printf("Error getting arango.LookUp music document: %v", err)
 	} else if musicDoc != nil {
-		//path := musicDoc.JsonDocument.FileStats.FullPath
+		//path := musicDoc.FileStats.FullPath
 		//log.Printf("Trace: found arango.LookUp music document: %v", path)
-		mItem := item.JsonToEpisode(musicDoc.JsonDocument)
+		mItem := item.JsonToEpisode(musicDoc)
 		return mItem, nil
 	}
 
 	return nil, nil
 }
 
-func (c *ArangoClient) getDoc(colName string, key string) (*item.ArangoDocument, error) {
+func (c *ArangoClient) getDoc(colName string, key string) (*item.JsonDocument, error) {
 	found := &item.JsonDocument{}
 
 	clxn := c.colNameMap[colName]
@@ -208,9 +208,13 @@ func (c *ArangoClient) getDoc(colName string, key string) (*item.ArangoDocument,
 		}
 	}
 
-	//log.Printf("Trace: arango.getDoc: item found: %s", key)
-	aDoc := found.Arango()
-	return aDoc, nil
+	if found.FileStats == nil {
+		//log.Printf("Trace: arango.getDoc: item is empty: %s", key)
+		return nil, nil
+		//} else {
+		//log.Printf("Trace: arango.getDoc: item found: %s", key)
+	}
+	return found, nil
 }
 
 func (c *ArangoClient) UpsertItem(it item.Item) error {

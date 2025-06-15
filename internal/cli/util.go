@@ -5,10 +5,16 @@ import (
 	"io/ioutil"
 	"log"
 	"os/user"
+
 	"pkg/conf"
+	"test"
 
 	"gopkg.in/yaml.v2"
 )
+
+// reference test module so that `go mod tidy` doesn't
+// remove test-only indirect dependencies
+type hax test.FakeItem
 
 func homeDir() string {
 	usr, err := user.Current()

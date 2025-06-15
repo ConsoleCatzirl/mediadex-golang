@@ -1,8 +1,9 @@
 package main
 
 import (
-	"internal/cli"
 	"log"
+
+	"internal/cli"
 	"pkg/worker"
 )
 

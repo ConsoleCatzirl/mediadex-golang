@@ -1,9 +1,10 @@
 package walker
 
 import (
+	"testing"
+
 	"internal/item"
 	"pkg/conf"
-	"testing"
 )
 
 func TestMakeWalkers(t *testing.T) {

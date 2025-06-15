@@ -1,10 +1,11 @@
 package walker
 
 import (
-	"internal/item"
 	"io/fs"
 	"log"
 	"path/filepath"
+
+	"internal/item"
 	"pkg/conf"
 )
 

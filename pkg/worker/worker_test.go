@@ -2,12 +2,13 @@ package worker
 
 import (
 	"errors"
+	"testing"
+
 	"internal/item"
 	"internal/runner"
 	"internal/walker"
 	"pkg/conf"
 	"test"
-	"testing"
 )
 
 func TestFakeWorker(t *testing.T) {

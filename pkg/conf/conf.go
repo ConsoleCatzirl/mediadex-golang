@@ -10,6 +10,7 @@ type Conf struct {
 	Actions ActionConf  `yaml:"actions"`
 	Backend BackendConf `yaml:"backends"`
 	Paths   PathsConf   `yaml:"paths"`
+	Threads ThreadsConf `yaml:"threads"`
 }
 
 type ActionConf struct {
@@ -22,6 +23,12 @@ type PathsConf struct {
 	Features []string `yaml:"movies"`
 	Music    []string `yaml:"music"`
 	Episodes []string `yaml:"series"`
+}
+
+type ThreadsConf struct {
+	Workers       int `yaml:"workers_per_path_type"`
+	FileBuffer    int `yaml:"channel_size_files"`
+	BackendBuffer int `yaml:"channel_size_backend"`
 }
 
 type BackendConf struct {
@@ -40,6 +47,7 @@ type ArangoConf struct {
 	Settings struct {
 		DbName     string `yaml:"database_name"`
 		ColPrefix  string `yaml:"collection_prefix"`
+		ColSuffix  string `yaml:"collection_suffix"`
 		EpisodeCol string `yaml:"series_collection"`
 		FeatureCol string `yaml:"movie_collection"`
 		MusicCol   string `yaml:"music_collection"`
@@ -55,6 +63,7 @@ type OpenSearchConf struct {
 	} `yaml:"auth"`
 	Settings struct {
 		IndexPrefix  string `yaml:"index_prefix"`
+		IndexSuffix  string `yaml:"index_suffix"`
 		EpisodeIndex string `yaml:"series_index"`
 		FeatureIndex string `yaml:"movie_index"`
 		MusicIndex   string `yaml:"music_index"`

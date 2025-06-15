@@ -2,6 +2,7 @@ package cli
 
 import (
 	"flag"
+
 	"pkg/conf"
 )
 
@@ -31,11 +32,7 @@ func ParseConf() (*conf.Conf, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	err = config.AddDefaults()
-	if err != nil {
-		return nil, err
-	}
+	config.AddDefaults()
 
 	// set config action toggles
 	if dryrun {
