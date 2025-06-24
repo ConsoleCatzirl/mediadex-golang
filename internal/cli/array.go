@@ -17,3 +17,8 @@ func (i *arrayFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil
 }
+
+// pflag.Value interface also requires Type()
+func (i *arrayFlags) Type() string {
+	return "string"
+}

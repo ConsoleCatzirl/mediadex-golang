@@ -1,4 +1,4 @@
-package test
+package tconf
 
 import (
 	_ "embed"
@@ -6,34 +6,36 @@ import (
 	"fmt"
 	"testing"
 
+	"internal/mlog"
 	"pkg/conf"
 
 	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v2"
 )
 
-//go:embed conf/empty.yaml
+//go:embed yaml/empty.yaml
 var empty []byte
 
-//go:embed conf/magicOnly.yaml
+//go:embed yaml/magicOnly.yaml
 var magicOnly []byte
 
-//go:embed conf/pathsOnly.yaml
+//go:embed yaml/pathsOnly.yaml
 var pathsOnly []byte
 
-//go:embed conf/backendsOnly.yaml
+//go:embed yaml/backendsOnly.yaml
 var backendsOnly []byte
 
-//go:embed conf/minimal.yaml
+//go:embed yaml/minimal.yaml
 var minimal []byte
 
-//go:embed conf/full.yaml
+//go:embed yaml/full.yaml
 var full []byte
 
-//go:embed conf/defaults.yaml
+//go:embed yaml/defaults.yaml
 var defaults []byte
 
 func TestConf(t *testing.T) {
+	mlog.Verbose()
 
 	testInput := []struct {
 		name      string
@@ -105,6 +107,8 @@ func TestConf(t *testing.T) {
 }
 
 func TestConfDefault(t *testing.T) {
+	mlog.Verbose()
+
 	testConf := &conf.MagicConf{}
 	err := yaml.Unmarshal(defaults, testConf)
 	if err != nil {

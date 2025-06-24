@@ -1,9 +1,10 @@
 package main
 
 import (
-	"log"
+	"os"
 
 	"internal/cli"
+	"internal/mlog"
 	"pkg/worker"
 )
 
@@ -11,29 +12,32 @@ func main() {
 	// get configuration
 	config, err := cli.ParseConf()
 	if err != nil {
-		log.Fatalf("Failed to parse configuration: %v", err)
+		mlog.Error("Failure parsing configuration", err)
+		os.Exit(1)
 	}
 
 	// create worker and start working
 	cmdWorker, err := worker.MakeWorker(config)
 	if err != nil {
-		log.Fatalf("Failed to create worker: %s", err)
+		mlog.Error("Failure creating worker", err)
+		os.Exit(2)
 	}
 
-	log.Printf("Movie paths: %v", config.Paths.Features)
-	log.Printf("Music paths: %v", config.Paths.Music)
-	log.Printf("Series paths: %v", config.Paths.Episodes)
+	mlog.Info("Search paths",
+		"movies", config.Paths.Features,
+		"music", config.Paths.Music,
+		"series", config.Paths.Episodes,
+	)
 
-	if config.Backend.ArangoDB != nil {
-		log.Printf("Found configuration for ArangoDB")
-	}
-	if config.Backend.OpenSearch != nil {
-		log.Printf("Found configuration for OpenSearch")
-	}
+	mlog.Info("Backend configuration",
+		"ArangoDB", config.Backend.ArangoDB != nil,
+		"OpenSearch", config.Backend.OpenSearch != nil,
+	)
 
-	log.Println("Starting")
+	mlog.Info("Starting")
 	err = cmdWorker.Work()
 	if err != nil {
-		log.Fatalf("Failed: %s", err)
+		mlog.Error("Worker Failed", err)
+		os.Exit(3)
 	}
 }

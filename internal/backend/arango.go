@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 
 	"internal/item"
+	"internal/mlog"
 	"pkg/conf"
 
 	"github.com/arangodb/go-driver/v2/arangodb"
@@ -73,7 +73,7 @@ func (c *ArangoClient) Connect() error {
 }
 
 func (c *ArangoClient) connectClient() error {
-	log.Printf("Trace: connecting to ArangoDB server")
+	mlog.Trace("backend.ArangoClient.connectClient", "Connecting to ArangoDB server")
 
 	var proto string
 	if c.config.Auth.Insecure {
@@ -90,7 +90,7 @@ func (c *ArangoClient) connectClient() error {
 	creds := connection.NewBasicAuth(c.config.Auth.User, c.config.Auth.Pass)
 	err := c.connection.SetAuthentication(creds)
 	if err != nil {
-		log.Printf("Error: failed to authenticate with ArangoDB")
+		mlog.Error("Failed to authenticate with ArangoDB", err)
 		return err
 	}
 
@@ -99,7 +99,7 @@ func (c *ArangoClient) connectClient() error {
 }
 
 func (c *ArangoClient) connectDB() error {
-	log.Printf("Trace: connecting to ArangoDB database")
+	mlog.Trace("backend.ArangoClient.connectDB", "Connecting to ArangoDB database")
 
 	exist, err := c.upstream.DatabaseExists(c.ctx, c.dbName)
 	if exist {
@@ -121,7 +121,7 @@ func (c *ArangoClient) connectDB() error {
 }
 
 func (c *ArangoClient) connectCollection(name string) error {
-	log.Printf("Trace: connecting to ArangoDB collection %s", name)
+	mlog.Trace("backend.ArangoClient.connectCollection", "Connecting to ArangoDB database", "collection", name)
 
 	exist, err := c.database.CollectionExists(c.ctx, name)
 	if exist {
@@ -148,13 +148,13 @@ func (c *ArangoClient) Index() {
 	for {
 		it, more := <-c.itemPipe
 		if !more {
-			//log.Printf("Trace: arango pipe is empty and closed")
+			mlog.Trace("backend.ArangoClient.Index", "Arango pipe is closed")
 			break
 		}
 
 		err := c.UpsertItem(it)
 		if err != nil {
-			log.Printf("Error upserting item: %v", err)
+			mlog.Error("Error upserting item", err)
 		}
 	}
 }
@@ -162,30 +162,54 @@ func (c *ArangoClient) Index() {
 func (c *ArangoClient) LookupItem(key string) (item.Item, error) {
 	episodeDoc, err := c.getDoc(c.colNameEpisode, key)
 	if err != nil {
-		log.Printf("Error arango.LookUp getting episode document: %v", err)
+		mlog.Error(
+			"Failure getting document", err,
+			"type", item.EpisodeFamily,
+			"backend", "ArangoDB",
+		)
 	} else if episodeDoc != nil {
-		//path := episodeDoc.FileStats.FullPath
-		//log.Printf("Trace: arango.LookUp found episode document: %v", path)
+		path := episodeDoc.FileStats.FullPath
+		mlog.Trace(
+			"backend.ArangoClient.LookupItem", "Found document",
+			"type", item.EpisodeFamily,
+			"file", path,
+		)
 		eItem := item.JsonToEpisode(episodeDoc)
 		return eItem, nil
 	}
 
 	featureDoc, err := c.getDoc(c.colNameFeature, key)
 	if err != nil {
-		log.Printf("Error arango.LookUp getting feature document: %v", err)
+		mlog.Error(
+			"Failure getting document", err,
+			"type", item.FeatureFamily,
+			"backend", "ArangoDB",
+		)
 	} else if featureDoc != nil {
-		//path := featureDoc.FileStats.FullPath
-		//log.Printf("Trace: arango.LookUp found feature document: %v", path)
+		path := featureDoc.FileStats.FullPath
+		mlog.Trace(
+			"backend.ArangoClient.LookupItem", "Found document",
+			"type", item.FeatureFamily,
+			"file", path,
+		)
 		fItem := item.JsonToEpisode(featureDoc)
 		return fItem, nil
 	}
 
 	musicDoc, err := c.getDoc(c.colNameMusic, key)
 	if err != nil {
-		log.Printf("Error getting arango.LookUp music document: %v", err)
+		mlog.Error(
+			"Failure getting document", err,
+			"type", item.MusicFamily,
+			"backend", "ArangoDB",
+		)
 	} else if musicDoc != nil {
-		//path := musicDoc.FileStats.FullPath
-		//log.Printf("Trace: found arango.LookUp music document: %v", path)
+		path := featureDoc.FileStats.FullPath
+		mlog.Trace(
+			"backend.ArangoClient.LookupItem", "Found document",
+			"type", item.MusicFamily,
+			"file", path,
+		)
 		mItem := item.JsonToEpisode(musicDoc)
 		return mItem, nil
 	}
@@ -200,20 +224,29 @@ func (c *ArangoClient) getDoc(colName string, key string) (*item.JsonDocument, e
 	_, err := clxn.ReadDocument(c.ctx, key, &found)
 	if err != nil {
 		if err.Error() == "document not found" {
-			//log.Printf("Trace: arango.getDoc: item not found: %s", key)
+			mlog.Trace(
+				"backend.ArangoClient.getDoc", "Item not found",
+				"key", key,
+			)
 			return nil, nil
 		} else {
-			log.Printf("Error: arango.getDoc: error reading doc: %v", err)
+			mlog.Error(
+				"Error getting doc", err,
+				"backend", "ArangoDB",
+			)
 			return nil, err
 		}
 	}
 
 	if found.FileStats == nil {
-		//log.Printf("Trace: arango.getDoc: item is empty: %s", key)
+		mlog.Trace(
+			"backend.ArangoClient.getDoc", "Item is empty", "key", key,
+		)
 		return nil, nil
-		//} else {
-		//log.Printf("Trace: arango.getDoc: item found: %s", key)
 	}
+	mlog.Trace(
+		"backend.ArangoClient.getDoc", "Item found", "key", key,
+	)
 	return found, nil
 }
 
@@ -249,23 +282,27 @@ func (c *ArangoClient) UpsertItem(it item.Item) error {
 func (c *ArangoClient) upsertDoc(clxn string, doc *item.ArangoDocument) error {
 	found, err := c.getDoc(clxn, doc.Key)
 	if err != nil {
-		log.Printf("Error: arango.upsertDoc: %s", err)
+		mlog.Error("Failure", err, "backend", "ArangoDB")
 		return err
 	}
 	if found == nil {
 		_, err := c.colNameMap[clxn].CreateDocument(c.ctx, doc)
 		if err != nil {
-			log.Printf("Error: arango.upsertDoc: %s", err)
+			mlog.Error(
+				"Failure creating document", err, "backend", "ArangoDB",
+			)
 			return err
 		}
-		//log.Printf("Trace: arango.upsertDoc: document created")
+		mlog.Trace("backend.ArangoClient.upsertDoc", "Document created")
 	} else {
 		_, err := c.colNameMap[clxn].UpdateDocument(c.ctx, doc.Key, doc)
 		if err != nil {
-			log.Printf("Error: arango.upsertDoc: %s", err)
+			mlog.Error(
+				"Failure updating document", err, "backend", "ArangoDB",
+			)
 			return err
 		}
-		//log.Printf("Trace: arango.upsertDoc: document updated")
+		mlog.Trace("backend.ArangoClient.upsertDoc", "Document updated")
 	}
 
 	return nil

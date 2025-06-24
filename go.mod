@@ -5,26 +5,23 @@ go 1.23.0
 toolchain go1.24.3
 
 replace (
+	pkg/conf => ./pkg/conf
+	pkg/worker => ./pkg/worker
+)
+
+replace (
 	internal/backend => ./internal/backend
 	internal/cli => ./internal/cli
 	internal/item => ./internal/item
+	internal/mlog => ./internal/mlog
 	internal/runner => ./internal/runner
 	internal/walker => ./internal/walker
 )
 
 replace (
-	pkg/conf => ./pkg/conf
-	pkg/worker => ./pkg/worker
-)
-
-replace test => ./test
-
-require (
-	internal/backend v0.0.0-00010101000000-000000000000 // indirect
-	internal/cli v0.0.0-00010101000000-000000000000
-	internal/item v0.0.0-00010101000000-000000000000 // indirect
-	internal/runner v0.0.0-00010101000000-000000000000 // indirect
-	internal/walker v0.0.0-00010101000000-000000000000 // indirect
+	test/fakes => ./test/fakes
+	test/tconf => ./test/tconf
+	test/tworker => ./test/tworker
 )
 
 require (
@@ -32,7 +29,20 @@ require (
 	pkg/worker v0.0.0-00010101000000-000000000000
 )
 
-require test v0.0.0-00010101000000-000000000000 // indirect
+require (
+	internal/backend v0.0.0-00010101000000-000000000000 // indirect
+	internal/cli v0.0.0-00010101000000-000000000000
+	internal/item v0.0.0-00010101000000-000000000000 // indirect
+	internal/mlog v0.0.0-00010101000000-000000000000
+	internal/runner v0.0.0-00010101000000-000000000000 // indirect
+	internal/walker v0.0.0-00010101000000-000000000000 // indirect
+)
+
+require (
+	test/fakes v0.0.0-00010101000000-000000000000 // indirect
+	test/tconf v0.0.0-00010101000000-000000000000 // indirect
+	test/tworker v0.0.0-00010101000000-000000000000 // indirect
+)
 
 require (
 	github.com/arangodb/go-driver/v2 v2.1.3 // indirect
@@ -49,6 +59,7 @@ require (
 	github.com/opensearch-project/opensearch-go/v4 v4.5.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect

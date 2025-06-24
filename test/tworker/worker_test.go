@@ -1,11 +1,12 @@
-package test
+package tworker
 
 import (
 	_ "embed"
+	"testing"
 
+	"internal/mlog"
 	"pkg/conf"
 	"pkg/worker"
-	"testing"
 
 	"gopkg.in/yaml.v2"
 )
@@ -13,7 +14,12 @@ import (
 //go:embed conf/docker.yaml
 var onlineConf []byte
 
-func TestOnlineWorker(t *testing.T) {
+func TestLocalhostWorker(t *testing.T) {
+	mlog.Verbose()
+
+	if testing.Short() {
+		t.Skip("Skipping online tests")
+	}
 
 	magic := &conf.MagicConf{}
 	err := yaml.Unmarshal(onlineConf, magic)

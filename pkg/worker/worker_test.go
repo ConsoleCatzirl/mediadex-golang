@@ -5,13 +5,16 @@ import (
 	"testing"
 
 	"internal/item"
+	"internal/mlog"
 	"internal/runner"
 	"internal/walker"
 	"pkg/conf"
-	"test"
+	"test/fakes"
 )
 
 func TestFakeWorker(t *testing.T) {
+	mlog.Verbose()
+
 	fakeArangoConf := &conf.ArangoConf{}
 	fakeArangoConf.Auth.User = "username"
 	fakeArangoConf.Auth.Pass = "password"
@@ -44,19 +47,19 @@ func TestFakeWorker(t *testing.T) {
 	postPipe2 := make(chan item.Item, 2)
 
 	walkers1 := make([]walker.Walker, 0)
-	walkers1 = append(walkers1, &test.FakeWalker{Pipe: prePipe1})
+	walkers1 = append(walkers1, &fakes.FakeWalker{Pipe: prePipe1})
 
 	walkers2 := make([]walker.Walker, 0)
-	walkers2 = append(walkers2, &test.FakeWalker{Pipe: prePipe2})
-	walkers2 = append(walkers2, &test.FakeWalker{Pipe: prePipe2})
+	walkers2 = append(walkers2, &fakes.FakeWalker{Pipe: prePipe2})
+	walkers2 = append(walkers2, &fakes.FakeWalker{Pipe: prePipe2})
 
 	walkers3 := make([]walker.Walker, 0)
-	walkers3 = append(walkers3, &test.FakeWalker{Pipe: prePipe3})
-	walkers3 = append(walkers3, &test.FakeWalker{Pipe: prePipe3})
-	walkers3 = append(walkers3, &test.FakeWalker{Pipe: prePipe3})
+	walkers3 = append(walkers3, &fakes.FakeWalker{Pipe: prePipe3})
+	walkers3 = append(walkers3, &fakes.FakeWalker{Pipe: prePipe3})
+	walkers3 = append(walkers3, &fakes.FakeWalker{Pipe: prePipe3})
 
 	runners1 := make([]runner.Runner, 0)
-	runners1 = append(runners1, &test.FakeRunner{
+	runners1 = append(runners1, &fakes.FakeRunner{
 		InPipe:   prePipe1,
 		OutPipe1: postPipe1,
 		OutPipe2: postPipe2,
@@ -66,7 +69,7 @@ func TestFakeWorker(t *testing.T) {
 	})
 
 	runners2 := make([]runner.Runner, 0)
-	runners2 = append(runners2, &test.FakeRunner{
+	runners2 = append(runners2, &fakes.FakeRunner{
 		InPipe:   prePipe2,
 		OutPipe1: postPipe1,
 		OutPipe2: postPipe2,
@@ -76,7 +79,7 @@ func TestFakeWorker(t *testing.T) {
 	})
 
 	runners3 := make([]runner.Runner, 0)
-	runners3 = append(runners3, &test.FakeRunner{
+	runners3 = append(runners3, &fakes.FakeRunner{
 		InPipe:   prePipe3,
 		OutPipe1: postPipe1,
 		OutPipe2: postPipe2,
@@ -85,8 +88,8 @@ func TestFakeWorker(t *testing.T) {
 		InBackRespErr:  errors.New("InBackend"),
 	})
 
-	backend1 := &test.FakeClient{Pipe: postPipe1}
-	backend2 := &test.FakeClient{Pipe: postPipe2}
+	backend1 := &fakes.FakeClient{Pipe: postPipe1}
+	backend2 := &fakes.FakeClient{Pipe: postPipe2}
 
 	fakeWorker := &Worker{
 		fakeConf,

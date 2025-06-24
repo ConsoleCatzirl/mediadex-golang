@@ -3,37 +3,41 @@ package cli
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"os/user"
 
+	"internal/mlog"
 	"pkg/conf"
-	"test"
+
+	"test/tconf"
+	"test/tworker"
 
 	"gopkg.in/yaml.v2"
 )
 
 // reference test module so that `go mod tidy` doesn't
 // remove test-only indirect dependencies
-type hax test.FakeItem
+type tconf_hax tconf.Hax
+type tworker_hax tworker.Hax
 
-func homeDir() string {
+func homeDir() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
-		log.Panicf("%v", err)
+		mlog.Error("Failure getting user home dir", err)
+		return "", err
 	}
-	return usr.HomeDir
+	return usr.HomeDir, nil
 }
 
 func openFile(path string, cfg *conf.MagicConf) error {
-	log.Printf("Reading configuration from %s", path)
+	mlog.Trace("cli.openFile", "Reading configuration", "file", path)
 	yamlFile, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Printf("Could not read file: %s", path)
+		mlog.Error("Failure reading configuration", err, "file", path)
 		return err
 	}
 	err = yaml.Unmarshal(yamlFile, cfg)
 	if err != nil {
-		log.Printf("Could not unmarshal file: %s", path)
+		mlog.Error("Failure unmarshalling configuration", err, "file", path)
 		return err
 	}
 
@@ -43,32 +47,38 @@ func openFile(path string, cfg *conf.MagicConf) error {
 func readConfigFile(path string) (*conf.Conf, error) {
 	var err error
 
-	log.Printf("Reading config file: %s", path)
+	mlog.Trace("cli.readConfigFile", "Reading configuration", "file", path)
 
 	newConf := &conf.MagicConf{
 		Mediadex: &conf.Conf{},
 	}
 
 	if path != "" {
-		// If a path is given, it's required.
-		log.Printf("Reading configuration from %s", path)
+		// If a path is set then it's required.
 		err = openFile(path, newConf)
 		if err != nil {
-			log.Printf("Could not read config file: %s", path)
+			mlog.Error("Could not read configuration", err, "file", path)
 			return nil, err
 		}
 	} else {
 		// If no path is given, try the local directory first,
 		// then fall back to the user's home directory.
 		localFile := "mediadex.yaml"
-		homeDirFile := homeDir() + "/" + localFile
 
 		err = openFile(localFile, newConf)
 		if err != nil {
-			log.Printf("Could not read config file: %s", localFile)
+			mlog.Warn("Could not read configuration", err, "file", localFile)
+
+			hDir, err := homeDir()
+			if err != nil {
+				mlog.Error("Could not get home directory", err)
+				return nil, err
+			}
+
+			homeDirFile := hDir + "/" + localFile
 			err = openFile(homeDirFile, newConf)
 			if err != nil {
-				log.Printf("Could not read config file: %s", homeDirFile)
+				mlog.Error("Could not read configuration", err, "file", homeDirFile)
 				return nil, err
 			}
 		}

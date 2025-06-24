@@ -1,29 +1,34 @@
 package cli
 
 import (
-	"flag"
-
+	"internal/mlog"
 	"pkg/conf"
+
+	flag "github.com/spf13/pflag"
 )
 
 func ParseConf() (*conf.Conf, error) {
 	// path to config file
 	var confFile string
-	flag.StringVar(&confFile, "config", "", "Path to config file")
+	flag.StringVarP(&confFile, "config", "c", "", "Path to config file")
+
+	// verbose/debug mode (same thing)
+	var verbose bool
+	flag.BoolVarP(&verbose, "verbose", "v", false, "Display debugging output")
 
 	// action type boolean flags
 	var dryrun, force, vaccuum bool
-	flag.BoolVar(&force, "force", false, "Regenerate all metadata")
-	flag.BoolVar(&dryrun, "dryrun", false, "Scan files without writing to a backend")
-	flag.BoolVar(&vaccuum, "vaccuum", false, "Remove backend entries for non-existent files")
+	flag.BoolVarP(&force, "force", "F", false, "Regenerate all metadata")
+	flag.BoolVarP(&dryrun, "dryrun", "D", false, "Scan files without writing to a backend")
+	flag.BoolVarP(&vaccuum, "vaccuum", "V", false, "Remove backend entries for non-existent files")
 
 	// list of additional search paths
-	var episodePaths arrayFlags
-	flag.Var(&episodePaths, "series", "Paths to search for series (may be given multiple times)")
-	var featurePaths arrayFlags
-	flag.Var(&featurePaths, "movies", "Paths to search for movies (may be given multiple times)")
-	var musicPaths arrayFlags
-	flag.Var(&musicPaths, "music", "Paths to search for music (may be given multiple times)")
+	var episodePaths = make([]string, 0)
+	flag.StringArrayVar(&episodePaths, "series", []string{}, "Paths to search for series (accepts multiple paths; may be given multiple times)")
+	var featurePaths = make([]string, 0)
+	flag.StringArrayVar(&featurePaths, "movies", []string{}, "Paths to search for movies (accepts multiple paths; may be given multiple times)")
+	var musicPaths = make([]string, 0)
+	flag.StringArrayVar(&musicPaths, "music", []string{}, "Paths to search for music (accepts multiple paths; may be given multiple times)")
 
 	// get values
 	flag.Parse()
@@ -33,6 +38,11 @@ func ParseConf() (*conf.Conf, error) {
 		return nil, err
 	}
 	config.AddDefaults()
+
+	// set verbosity
+	if verbose {
+		mlog.Verbose()
+	}
 
 	// set config action toggles
 	if dryrun {

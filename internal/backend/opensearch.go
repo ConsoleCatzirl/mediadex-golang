@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 
 	"internal/item"
+	"internal/mlog"
 	"pkg/conf"
 
 	"github.com/opensearch-project/opensearch-go/v4"
@@ -90,7 +90,7 @@ func (c *OpenSearchClient) indexSettings() *OpenSearchIndexSettings {
 }
 
 func (c *OpenSearchClient) connectCluster() error {
-	log.Println("Trace: connecting to OpenSearch cluster")
+	mlog.Trace("backend.OpenSearchClient.connectCluster", "Connecting to OpenSearch cluster")
 
 	// create upstream config
 	upstreamConfig := opensearch.Config{
@@ -123,18 +123,22 @@ func (c *OpenSearchClient) assureIndex(name string, settings *OpenSearchIndexSet
 	}
 	exists, err := c.upstream.Client.Do(c.ctx, existReq, nil)
 	if err != nil {
-		log.Printf("Error checking for existing index: %s", err)
+		mlog.Error("Error checking for existing index", err, "index", name)
 		return err
 	}
 	defer exists.Body.Close()
 
 	if exists.StatusCode == http.StatusOK {
-		//log.Printf("Trace: index %s exists", name)
+		mlog.Trace(
+			"backend.OpenSearchClient.assureIndex", "Index exists",
+			"index", name,
+		)
 	} else {
 		// create index
 		jsonBytes, err := json.Marshal(settings)
 		if err != nil {
-			log.Printf("Error marshalling index settings")
+			mlog.Error("Failure marshalling index settings", err)
+			return err
 		}
 		createReq := opensearchapi.IndicesCreateReq{
 			Index: name,
@@ -142,14 +146,20 @@ func (c *OpenSearchClient) assureIndex(name string, settings *OpenSearchIndexSet
 		}
 		create, err := c.upstream.Client.Do(c.ctx, createReq, nil)
 		if err != nil {
-			log.Printf("Error creating index: %s", err)
+			mlog.Error("Failure creating index", err, "index", name)
 			return err
 		}
 		defer create.Body.Close()
 
 		if create.IsError() {
-			log.Printf("Error creating index: %s", create.String())
+			err = errors.New(create.String())
+			mlog.Error("Failure creating index", err, "index", name)
+			return err
 		}
+		mlog.Trace(
+			"backend.OpenSearchClient.assureIndex", "Index created",
+			"index", name,
+		)
 	}
 	return nil
 }
@@ -158,13 +168,13 @@ func (c *OpenSearchClient) Index() {
 	for {
 		it, more := <-c.itemPipe
 		if !more {
-			log.Printf("Trace: opensearch pipe is empty and closed")
+			mlog.Trace("backend.OpenSearchClient.Index", "OpenSearch pipe is empty and closed")
 			break
 		}
 
 		err := c.UpsertItem(it)
 		if err != nil {
-			log.Printf("Error upserting item: %v", err)
+			mlog.Error("Failure upserting item", err)
 		}
 	}
 }
@@ -175,7 +185,10 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 		return nil, err
 	}
 	if episodeDoc != nil {
-		//log.Printf("Trace: opensearch.LookupItem: found episode doc: %v", episodeDoc)
+		mlog.Trace(
+			"backend.OpenSearchClient.LookupItem", "Found document",
+			"type", item.EpisodeFamily, "ID", id,
+		)
 		eItem := item.JsonToEpisode(episodeDoc)
 		return eItem, nil
 	}
@@ -185,7 +198,10 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 		return nil, err
 	}
 	if featureDoc != nil {
-		//log.Printf("Trace: opensearch.LookupItem: found feature doc: %v", episodeDoc)
+		mlog.Trace(
+			"backend.OpenSearchClient.LookupItem", "Found document",
+			"type", item.FeatureFamily, "ID", id,
+		)
 		fItem := item.JsonToFeature(featureDoc)
 		return fItem, nil
 	}
@@ -195,7 +211,10 @@ func (c *OpenSearchClient) LookupItem(id string) (item.Item, error) {
 		return nil, err
 	}
 	if musicDoc != nil {
-		//log.Printf("Trace: opensearch.LookupItem: found music doc: %v", episodeDoc)
+		mlog.Trace(
+			"backend.OpenSearchClient.LookupItem", "Found document",
+			"type", item.MusicFamily, "ID", id,
+		)
 		mItem := item.JsonToMusic(musicDoc)
 		return mItem, nil
 	}
@@ -207,7 +226,9 @@ func (c *OpenSearchClient) getDoc(index string, docId string) (*item.JsonDocumen
 	var foundBytes []byte
 	foundDoc := &item.JsonDocument{}
 
-	//log.Printf("Trace: opensearch.getDoc: getting %s from %s", docId, index)
+	mlog.Trace("backend.OpenSearchClient.getDoc", "Getting document",
+		"ID", docId, "index", index,
+	)
 
 	req := opensearchapi.DocumentGetReq{
 		Index:      index,
@@ -219,20 +240,36 @@ func (c *OpenSearchClient) getDoc(index string, docId string) (*item.JsonDocumen
 		return nil, nil
 	} else {
 		if resp.Source != nil {
-			//log.Printf("Trace: opensearch.getDoc: using 'source'")
+			mlog.Trace("backend.OpenSearchClient.getDoc", "Using 'source'",
+				"ID", docId, "index", index,
+			)
 			foundBytes = resp.Source
 		} else if resp.Fields != nil {
-			//log.Printf("Trace: opensearch.getDoc: using 'fields'")
+			mlog.Trace("backend.OpenSearchClient.getDoc", "Using 'fields'",
+				"ID", docId, "index", index,
+			)
 			foundBytes = resp.Fields
 		} else {
-			log.Printf("Trace: opensearch.getDoc: 'source' and 'fields' both empty")
+			new_err := errors.New("document 'source' and 'fields' both empty")
+			mlog.Warn(
+				"No document data", err,
+				"ID", docId, "index", index,
+			)
 
 			respAsJson, err := json.MarshalIndent(resp, "", "  ")
 			if err != nil {
-				return nil, err
+				mlog.Error(
+					"Failure marshalling document data", err,
+					"ID", docId, "index", index,
+				)
 			}
-			log.Printf("Trace: opensearch getDoc: document:\n%s\n", respAsJson)
-			return nil, errors.New("Document found, but empty")
+			mlog.Trace(
+				"backend.OpenSearchClient.getDoc", "Found empty document",
+				"ID", docId, "index", index,
+				"document", respAsJson,
+			)
+
+			return nil, new_err
 		}
 	}
 
@@ -278,18 +315,27 @@ func (c *OpenSearchClient) upsertDoc(idx string, doc *item.OpenSearchDocument) e
 	}
 	bodyReader := bytes.NewReader(jsonBytes)
 
-	//log.Printf("Trace: opensearch.upsertDoc: docId: %s", doc.ID)
+	mlog.Trace(
+		"backend.OpenSearchClient.upsertDoc", "Upserting document",
+		"index", idx, "ID", doc.ID,
+	)
 	req := opensearchapi.IndexReq{
 		Index:      idx,
 		DocumentID: doc.ID,
 		Body:       bodyReader,
 	}
-	_, err = c.upstream.Index(c.ctx, req)
+	resp, err := c.upstream.Index(c.ctx, req)
 	if err != nil {
+		mlog.Error("Failure upserting document", err,
+			"index", idx, "ID", doc.ID,
+		)
 		return err
 	}
 
-	//log.Printf("Trace: opensearch.upsertDoc: result: %s", resp.Result)
+	mlog.Trace(
+		"backend.OpenSearchClient.upsertDoc", "Document upserted",
+		"index", idx, "ID", doc.ID, "result", resp.Result,
+	)
 
 	return nil
 }

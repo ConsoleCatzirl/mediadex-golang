@@ -5,7 +5,7 @@ import (
 
 	"internal/item"
 	"pkg/conf"
-	"test"
+	"test/fakes"
 )
 
 func TestRunner(t *testing.T) {
@@ -13,20 +13,20 @@ func TestRunner(t *testing.T) {
 	iPipe1 := make(chan item.Item)
 	iPipe2 := make(chan item.Item)
 
-	foundBack := &test.FakeClient{
+	foundBack := &fakes.FakeClient{
 		Pipe:      iPipe1,
 		HasLookup: true,
 	}
-	notFoundBack := &test.FakeClient{
+	notFoundBack := &fakes.FakeClient{
 		Pipe:      iPipe2,
 		HasLookup: false,
 	}
-	errFoundBack := &test.FakeClient{
+	errFoundBack := &fakes.FakeClient{
 		Pipe:         iPipe1,
 		HasLookup:    true,
 		HasLookupErr: true,
 	}
-	errNotFoundBack := &test.FakeClient{
+	errNotFoundBack := &fakes.FakeClient{
 		Pipe:         iPipe2,
 		HasLookup:    false,
 		HasLookupErr: true,

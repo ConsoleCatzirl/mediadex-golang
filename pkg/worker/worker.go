@@ -2,11 +2,11 @@ package worker
 
 import (
 	"errors"
-	"log"
 	"sync"
 
 	"internal/backend"
 	"internal/item"
+	"internal/mlog"
 	"internal/runner"
 	"internal/walker"
 	"pkg/conf"
@@ -43,7 +43,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Trace: valid configuration; creating worker")
+	mlog.Trace("worker.MakeWorker", "Valid configuration; creating worker")
 
 	runnerCount := config.Threads.Workers
 	filePipeSize := config.Threads.FileBuffer
@@ -65,14 +65,15 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 
 	// add arango backend
 	if config.Backend.ArangoDB != nil {
-		log.Println("Trace: creating ArangoDB client")
+		mlog.Trace("worker.MakeWorker", "Creating ArangoDB client")
 		newArangoClient := backend.MakeArangoClient(
 			config.Backend.ArangoDB,
 			newWorker.postPipeArango,
 		)
 		err = newArangoClient.Connect()
 		if err != nil {
-			log.Printf("Error: ArangoDB client failed to connect: %v", err)
+			mlog.Error("ArangoDB client failed to connect", err)
+			return nil, err
 		} else {
 			newWorker.arangoBackend = newArangoClient
 		}
@@ -80,14 +81,15 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 
 	// add opensearch backend
 	if config.Backend.OpenSearch != nil {
-		log.Println("Trace: creating OpenSearch client")
+		mlog.Trace("worker.MakeWorker", "Creating OpenSearch client")
 		newOpenSearchClient := backend.MakeOpenSearchClient(
 			config.Backend.OpenSearch,
 			newWorker.postPipeOpenSearch,
 		)
 		err = newOpenSearchClient.Connect()
 		if err != nil {
-			log.Printf("Error: OpenSearch client failed to connect: %v", err)
+			mlog.Error("OpenSearch client failed to connect", err)
+			return nil, err
 		} else {
 			newWorker.openSearchBackend = newOpenSearchClient
 		}
@@ -99,7 +101,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 
 	if len(config.Paths.Episodes) > 0 {
 		// add episode walkers
-		log.Println("Trace: creating series walkers")
+		mlog.Trace("worker.MakeWorker", "Creating series walkers")
 		newEpisodeWalkers := walker.MakeWalkers(
 			config.Paths.Episodes,
 			&config.Actions,
@@ -110,7 +112,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		}
 
 		// add episode runners
-		log.Println("Trace: creating series runners")
+		mlog.Trace("worker.MakeWorker", "Creating series runners")
 		newEpisodeRunners := make([]runner.Runner, 0)
 		for _ = range runnerCount {
 			newRunner := runner.NewRunner(
@@ -129,7 +131,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 
 	if len(config.Paths.Features) > 0 {
 		// add feature walkers
-		log.Println("Trace: creating movie walkers")
+		mlog.Trace("worker.MakeWorker", "Creating movie walkers")
 		newFeaturesWalkers := walker.MakeWalkers(
 			config.Paths.Features,
 			&config.Actions,
@@ -140,7 +142,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		}
 
 		// add feature runners
-		log.Println("Trace: creating movie runners")
+		mlog.Trace("worker.MakeWorker", "Creating movie runners")
 
 		newFeatureRunners := make([]runner.Runner, 0)
 		for _ = range runnerCount {
@@ -160,7 +162,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 
 	if len(config.Paths.Music) > 0 {
 		// add music walkers
-		log.Println("Trace: creating music walkers")
+		mlog.Trace("worker.MakeWorker", "Creating music walkers")
 		newMusicWalkers := walker.MakeWalkers(
 			config.Paths.Music,
 			&config.Actions,
@@ -171,7 +173,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		}
 
 		// add music runners
-		log.Println("Trace: creating music runners")
+		mlog.Trace("worker.MakeWorker", "Creating music runners")
 		newMusicRunners := make([]runner.Runner, 0)
 		for _ = range runnerCount {
 			newRunner := runner.NewRunner(
@@ -188,7 +190,7 @@ func MakeWorker(config *conf.Conf) (*Worker, error) {
 		newWorker.musicRunners = newMusicRunners
 	}
 
-	log.Println("Trace: new worker created")
+	mlog.Trace("worker.MakeWorker", "Worker created")
 	return newWorker, nil
 }
 
@@ -202,7 +204,7 @@ func (w *Worker) Work() error {
 	// spawn worker components in reverse: backends, runners, walkers
 	// so that the consumers are listening before the producers begin
 
-	log.Println("Trace: starting backend indexers")
+	mlog.Trace("worker.Worker.Work", "Starting backend indexers")
 
 	var wgArango, wgOpenSearch, wgBackends sync.WaitGroup
 
@@ -213,9 +215,9 @@ func (w *Worker) Work() error {
 		// close backend pipe after indexing finishes
 		go func() {
 			defer wgArango.Done()
-			log.Println("Trace: arango indexer starting")
+			mlog.Trace("worker.Worker.Work", "ArangoDB index starting")
 			w.arangoBackend.Index()
-			log.Println("Trace: arango indexer finished")
+			mlog.Trace("worker.Worker.Work", "ArangoDB index finished")
 		}()
 
 		// signal backend complete
@@ -232,9 +234,9 @@ func (w *Worker) Work() error {
 		// close backend pipe after indexing finishes
 		go func() {
 			defer wgOpenSearch.Done()
-			log.Println("Trace: opensearch indexer starting")
+			mlog.Trace("worker.Worker.Work", "OpenSearch index starting")
 			w.openSearchBackend.Index()
-			log.Println("Trace: opensearch indexer finished")
+			mlog.Trace("worker.Worker.Work", "OpenSearch index finished")
 		}()
 
 		// signal backend complete
@@ -244,7 +246,7 @@ func (w *Worker) Work() error {
 		}()
 	}
 
-	log.Println("Trace: starting core runners")
+	mlog.Trace("worker.Worker.Work", "Starting runners")
 
 	var wgRunners sync.WaitGroup
 	wgRunners.Add(len(w.episodeRunners))
@@ -254,27 +256,27 @@ func (w *Worker) Work() error {
 	for _, runner := range w.episodeRunners {
 		go func() {
 			defer wgRunners.Done()
-			log.Println("Trace: series runner starting")
+			//mlog.Trace("worker.Worker.Work", "series runner starting")
 			runner.Run()
-			log.Println("Trace: series runner finished")
+			//mlog.Trace("worker.Worker.Work", "series runner finished")
 		}()
 	}
 
 	for _, runner := range w.featureRunners {
 		go func() {
 			defer wgRunners.Done()
-			log.Println("Trace: movie runner starting")
+			//mlog.Trace("worker.Worker.Work", "movie runner starting")
 			runner.Run()
-			log.Println("Trace: movie runner finished")
+			//mlog.Trace("worker.Worker.Work", "movie runner finished")
 		}()
 	}
 
 	for _, runner := range w.musicRunners {
 		go func() {
 			defer wgRunners.Done()
-			log.Println("Trace: music runner starting")
+			//mlog.Trace("worker.Worker.Work", "music runner starting")
 			runner.Run()
-			log.Println("Trace: music runner finished")
+			//mlog.Trace("worker.Worker.Work", "music runner finished")
 		}()
 	}
 
@@ -283,11 +285,10 @@ func (w *Worker) Work() error {
 		defer close(w.postPipeArango)
 		defer close(w.postPipeOpenSearch)
 		wgRunners.Wait()
-		log.Println("Trace: all runners finished; closing backend pipes")
-
+		mlog.Trace("worker.Worker.Work", "All runners finished; closing backend pipes")
 	}()
 
-	log.Println("Trace: starting file walkers")
+	mlog.Trace("worker.Worker.Work", "Starting file walkers")
 
 	var wgFeatureWalkers, wgMusicWalkers, wgEpisodeWalkers sync.WaitGroup
 	wgEpisodeWalkers.Add(len(w.episodeWalkers))
@@ -297,25 +298,25 @@ func (w *Worker) Work() error {
 	for _, walker := range w.episodeWalkers {
 		go func() {
 			defer wgEpisodeWalkers.Done()
-			log.Println("Trace: series walker starting")
+			//mlog.Trace("worker.Worker.Work", "series walker starting")
 			walker.Walk()
-			log.Println("Trace: series walker finished")
+			//mlog.Trace("worker.Worker.Work", "series walker finished")
 		}()
 	}
 	for _, walker := range w.featureWalkers {
 		go func() {
 			defer wgFeatureWalkers.Done()
-			log.Println("Trace: movie walker starting")
+			//mlog.Trace("worker.Worker.Work", "movie walker starting")
 			walker.Walk()
-			log.Println("Trace: movie walker finished")
+			//mlog.Trace("worker.Worker.Work", "movie walker finished")
 		}()
 	}
 	for _, walker := range w.musicWalkers {
 		go func() {
 			defer wgMusicWalkers.Done()
-			log.Println("Trace: music walker starting")
+			//mlog.Trace("worker.Worker.Work", "music walker starting")
 			walker.Walk()
-			log.Println("Trace: music walker finished")
+			//mlog.Trace("worker.Worker.Work", "music walker finished")
 		}()
 	}
 
@@ -323,23 +324,23 @@ func (w *Worker) Work() error {
 	go func() {
 		defer close(w.prePipeEpisode)
 		wgEpisodeWalkers.Wait()
-		log.Println("Trace: series walkers finished; closing pipe")
+		mlog.Trace("worker.Worker.Work", "All series walkers finished; closing pipe")
 	}()
 	go func() {
 		defer close(w.prePipeFeature)
 		wgFeatureWalkers.Wait()
-		log.Println("Trace: movie walkers finished; closing pipe")
+		mlog.Trace("worker.Worker.Work", "All movie walkers finished; closing pipe")
 
 	}()
 	go func() {
 		defer close(w.prePipeMusic)
 		wgMusicWalkers.Wait()
-		log.Println("Trace: music walkers finished; closing pipe")
+		mlog.Trace("worker.Worker.Work", "All music walkers finished; closing pipe")
 	}()
 
 	// finally, wait for backends to finish
 	wgBackends.Wait()
-	log.Println("Trace: backends finished")
+	mlog.Trace("worker.Worker.Work", "Backends finished")
 
 	return nil
 }

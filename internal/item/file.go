@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"strings"
+
+	"internal/mlog"
 
 	"github.com/gabriel-vasile/mimetype"
 )
@@ -40,14 +41,14 @@ func (f *FileItem) addChecksum() error {
 		// Only read first and last chunks
 		_, err := io.CopyN(hasher, data, chunkSize)
 		if err != nil {
-			log.Printf("Error reading first chunk: %v", err)
+			mlog.Error("Error reading first chunk", err)
 			return err
 		}
 
 		data.Seek(0-(chunkSize+1), io.SeekEnd)
 		_, err = io.CopyN(hasher, data, chunkSize)
 		if err != nil {
-			log.Printf("Error reading last chunk: %v", err)
+			mlog.Error("Error reading last chunk", err)
 			return err
 		}
 	} else {
@@ -55,7 +56,7 @@ func (f *FileItem) addChecksum() error {
 		n, err := io.CopyN(hasher, data, 2*chunkSize)
 		if int64(n) < f.FileSize {
 			if err != nil {
-				log.Printf("Error reading file: %v", err)
+				mlog.Error("Error reading file", err)
 				return err
 			}
 		}
@@ -71,7 +72,8 @@ func (f *FileItem) addChecksum() error {
 	sum := hasher.Sum(nil)
 
 	f.Checksum = fmt.Sprintf("%x", sum)
-	//log.Printf("Checksum for %s: %s", f.FullPath, f.Checksum)
+	mlog.Trace("item.FileItem.addChecksum", "Checksum calculated",
+		"file", f.FullPath, "checksum", f.Checksum)
 
 	return nil
 }

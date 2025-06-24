@@ -2,10 +2,10 @@ package walker
 
 import (
 	"io/fs"
-	"log"
 	"path/filepath"
 
 	"internal/item"
+	"internal/mlog"
 	"pkg/conf"
 )
 
@@ -39,7 +39,7 @@ func (w *mediaWalker) Walk() error {
 
 func (w *mediaWalker) ProcessFile(path string, dir fs.DirEntry, err error) error {
 	if err != nil {
-		log.Printf("Error opening file: %v", err)
+		mlog.Error("Could not open file", err)
 		return err
 	}
 
@@ -51,14 +51,14 @@ func (w *mediaWalker) ProcessFile(path string, dir fs.DirEntry, err error) error
 
 	if !dType.IsRegular() {
 		// Skip special file types
-		log.Printf("Trace: skipping non-regular file: '%s'", path)
+		mlog.Info("Skipping non-regular file", "file", path)
 		return nil
 	}
 
 	// read file stats from disk
 	newFileItem, err := item.StatFile(dir, path, w.searchPath)
 	if err != nil {
-		log.Printf("Error creating file item: %v", err)
+		mlog.Error("Failure creating file item", err)
 		return err
 	}
 
